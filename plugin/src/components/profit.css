@@ -1,0 +1,12 @@
+.risk-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 15px; }
+.risk-badges:empty { display: none; }
+.badge.red { background: #fff0f1; color: #b91c1c; }
+.badge.orange { background: #fff4e5; color: #a6530b; }
+.badge.green { background: #edf8f4; color: #15735a; }
+.commission-hint { margin: 0 0 13px !important; color: #68758e; font-size: 10px; }
+.small-order { display: flex; flex-direction: column; gap: 6px; }
+.small-order label { display: flex; align-items: center; gap: 7px; cursor: pointer; }
+.small-order input { width: 14px; height: 14px; accent-color: #1d4ed8; }
+.profit-breakdown { margin-top: 12px !important; padding-top: 6px; border-top: 1px solid #eef1f6; }
+.profit-breakdown > div { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; }
+.profit-breakdown dd { color: #526079; text-align: right; }

@@ -1,0 +1,46 @@
+import { useId } from 'react';
+import type { GpsrLabelDraft } from '../types';
+import { Section } from './Fields';
+
+const iconOptions = [
+  { value: 'ce', label: 'CE 标志', detail: '仅用于适用的欧盟协调法规产品' },
+  { value: 'weee', label: 'WEEE 垃圾桶', detail: '仅用于电气电子设备' },
+  { value: 'age', label: '0–3 岁禁玩', detail: '仅用于存在对应年龄风险的产品' },
+  { value: 'triman', label: '法国 Triman 回收标', detail: '法国市场适用时选择' },
+] as const;
+
+export function GpsrLabelSettings({ draft, onField, sectionId }: {
+  draft: GpsrLabelDraft;
+  onField: <Key extends keyof GpsrLabelDraft>(key: Key, value: GpsrLabelDraft[Key]) => void;
+  sectionId?: string;
+}) {
+  const sizeId = useId();
+  const warningId = useId();
+  const changeIcon = (icon: GpsrLabelDraft['icons'][number], selected: boolean) => {
+    const icons = selected ? [...draft.icons, icon] : draft.icons.filter((value) => value !== icon);
+    onField('icons', [...new Set(icons)]);
+  };
+  return <Section id={sectionId} title="标签尺寸与安全信息">
+    <div className="gpsr-size-orientation">
+      <div className="field"><label htmlFor={sizeId}>打印尺寸</label><select id={sizeId} value={draft.labelSize} onChange={(event) => onField('labelSize', event.target.value as GpsrLabelDraft['labelSize'])}>
+        <option value="70x80">70 × 80 mm · 推荐</option><option value="80x80">80 × 80 mm · 方形大标</option>
+        <option value="100x100">100 × 100 mm · 外箱大标</option><option value="custom">自定义尺寸</option>
+      </select></div>
+      <fieldset className="gpsr-orientation"><legend>出纸方向</legend>
+        <button type="button" aria-pressed={draft.orientation === 0} onClick={() => onField('orientation', 0)}>0° · 纵向</button>
+        <button type="button" aria-pressed={draft.orientation === 90} onClick={() => onField('orientation', 90)}>90° · 横向</button>
+      </fieldset>
+    </div>
+    {draft.labelSize === 'custom' && <div className="gpsr-two-column">
+      <div className="field"><label htmlFor="gpsr-custom-width">宽度</label><div className="input-wrap"><input id="gpsr-custom-width" type="number" min={70} max={5000} value={draft.customWidth} onChange={(event) => onField('customWidth', Number(event.target.value))}/><span>mm</span></div></div>
+      <div className="field"><label htmlFor="gpsr-custom-height">高度</label><div className="input-wrap"><input id="gpsr-custom-height" type="number" min={80} max={5000} value={draft.customHeight} onChange={(event) => onField('customHeight', Number(event.target.value))}/><span>mm</span></div></div>
+    </div>}
+    <fieldset className="icon-options gpsr-icon-options"><legend>合规标志 · 按产品适用性选择</legend>{iconOptions.map((option) => <label key={option.value}>
+      <input type="checkbox" checked={draft.icons.includes(option.value)} onChange={(event) => changeIcon(option.value, event.target.checked)}/>
+      <span>{option.label}<small className="icon-market-hint">{option.detail}</small></span>
+    </label>)}</fieldset>
+    <div className="field"><label htmlFor={warningId}>安全警示语</label><select id={warningId} value={draft.warningId} onChange={(event) => onField('warningId', event.target.value as GpsrLabelDraft['warningId'])}>
+      <option value="none">无警示语</option><option value="choking">防窒息警告 · RO / BG / HU</option><option value="fire">远离火源 · RO / BG / HU</option>
+    </select></div>
+  </Section>;
+}

@@ -1,0 +1,66 @@
+{
+  "manifest_version": 3,
+  "name": "eMAG 卖家工具箱",
+  "description": "商品透视、1688 选品试算、GPSR 标签与 DoC 草稿工具，数据仅保存在本地。",
+  "version": "1.1.0",
+  "minimum_chrome_version": "120",
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "sidePanel"
+  ],
+  "host_permissions": [
+    "https://air.1688.com/*",
+    "https://api.mymemory.translated.net/*"
+  ],
+  "background": {
+    "service_worker": "src/background.ts",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "eMAG 卖家工具箱",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "side_panel": {
+    "default_path": "popup.html"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.emag.ro/*"
+      ],
+      "js": [
+        "src/content/index.tsx"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://air.1688.com/kapp/1688-search/pc-image-search/*"
+      ],
+      "js": [
+        "src/imageSearch/index.ts"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["wechat-qr.png"],
+      "matches": ["https://www.emag.ro/*"]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'"
+  }
+}

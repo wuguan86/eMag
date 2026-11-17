@@ -1,0 +1,32 @@
+<!doctype html><meta charset="utf-8"><title>1688 控件结构回归夹具</title>
+<!-- 根据公开 0.0.29/213.js 的组件结构提取，仅模拟交互，不请求上传接口。 -->
+<div class="search-image-upload-container" data-spm="imageUpload">
+  <div class="image-upload-button-container" data-tracker="imgSearch">
+    <input id="img-search-upload" class="image-file-reader-wrapper" type="file" accept=".jpg,.jpeg,.png,.bmp,.webp" multiple>
+    <div class="image-upload-button-text">以图搜款</div>
+  </div>
+  <div id="preview-slot"></div>
+</div>
+<div>上传图片 <output id="upload-count">(0/6)</output></div>
+<input id="plus-upload" type="file" accept="image/*"><output id="plus-error"></output>
+<output id="search-result"></output>
+<script>
+  const topInput = document.querySelector('#img-search-upload');
+  let uploadedFile;
+  document.querySelector('#plus-upload').addEventListener('change', () => document.querySelector('#plus-error').textContent = '无法识别');
+  topInput.addEventListener('change', (event) => {
+    uploadedFile = event.target.files[0];
+    // 原站在读取文件后清空 input，等待异步上传完成后才出现“搜索图片”。
+    event.target.value = '';
+    document.querySelector('#preview-slot').innerHTML = '<div class="copy-image-container"><div class="search-btn" data-tracker="pasteImagePreview">上传中...</div></div>';
+    setTimeout(() => {
+      const submit = document.querySelector('.copy-image-container .search-btn');
+      submit.textContent = '搜索图片';
+      submit.onclick = async () => {
+        document.querySelector('#upload-count').textContent = '(1/6)';
+        const bytes = new Uint8Array(await uploadedFile.arrayBuffer());
+        document.querySelector('#search-result').textContent = JSON.stringify({ status: '自动搜索已提交', name: uploadedFile.name, type: uploadedFile.type, size: uploadedFile.size, header: [...bytes.slice(0, 3)] });
+      };
+    }, 300);
+  });
+</script>
