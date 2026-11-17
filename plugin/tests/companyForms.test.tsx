@@ -38,7 +38,7 @@ describe('模板、法规参考和反馈交互', () => {
   it('GPSR 三语标签草稿与 DoC 产品资料相互独立，标签设置在返回后保留', async () => {
     const { Toolkit } = await import('../src/components/Toolkit');
     render(<Toolkit product={null} popup/>);
-    fireEvent.change(screen.getByLabelText('商品原始品名 / 中文品名'), { target: { value: '标签商品' } });
+    fireEvent.change(screen.getByLabelText('商品原始品名'), { target: { value: '标签商品' } });
     fireEvent.change(screen.getByLabelText('型号 · Model No.'), { target: { value: 'LABEL-1' } });
     fireEvent.change(screen.getByLabelText('安全警示语'), { target: { value: 'choking' } });
     fireEvent.click(screen.getByRole('checkbox', { name: /CE 标志/ }));
@@ -46,7 +46,7 @@ describe('模板、法规参考和反馈交互', () => {
     expect((screen.getByLabelText('产品名称') as HTMLInputElement).value).toBe('');
     fireEvent.change(screen.getByLabelText('产品名称'), { target: { value: 'DoC 商品' } });
     fireEvent.click(screen.getByRole('button', { name: 'GPSR 标签' }));
-    expect((screen.getByLabelText('商品原始品名 / 中文品名') as HTMLInputElement).value).toBe('标签商品');
+    expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('标签商品');
     expect((screen.getByLabelText('型号 · Model No.') as HTMLInputElement).value).toBe('LABEL-1');
     expect((screen.getByLabelText('安全警示语') as HTMLSelectElement).value).toBe('choking');
     expect((screen.getByRole('checkbox', { name: /CE 标志/ }) as HTMLInputElement).checked).toBe(true);

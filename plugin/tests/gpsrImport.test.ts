@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { readCurrentProductTitle } from '../src/utils/productImport';
+import { readCurrentProductName } from '../src/utils/productImport';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -11,7 +11,7 @@ describe('GPSR 当前商品导入', () => {
       scripting: { executeScript },
     });
 
-    await expect(readCurrentProductTitle(null)).resolves.toBe('Wireless Earbuds');
+    await expect(readCurrentProductName(null)).resolves.toEqual({ text: 'Wireless Earbuds', language: '' });
     expect(executeScript).toHaveBeenCalledTimes(1);
   });
 
@@ -22,7 +22,7 @@ describe('GPSR 当前商品导入', () => {
       scripting: { executeScript },
     });
 
-    await expect(readCurrentProductTitle(null)).rejects.toThrow('请在 eMAG 或 1688 商品页');
+    await expect(readCurrentProductName(null)).rejects.toThrow('请在 eMAG 或 1688 商品页');
     expect(executeScript).not.toHaveBeenCalled();
   });
 });

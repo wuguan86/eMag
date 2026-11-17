@@ -61,9 +61,13 @@ export type GpsrMaterialId = 'plastic' | 'silicone' | 'metal' | 'stainlessSteel'
 export type GpsrWarningId = 'none' | 'choking' | 'fire';
 
 export interface LocalizedText { zh: string; ro: string; bg: string; hu: string }
+export type ProductNameLanguage = 'zh-CN' | 'ro' | 'bg' | 'hu' | 'en';
+export interface ProductNameSource { text: string; language: ProductNameLanguage | '' }
 
 export interface GpsrLabelDraft {
   productName: LocalizedText;
+  productNameSource?: ProductNameSource;
+  productNameRevision?: string;
   material: GpsrMaterialId | '';
   model: string;
   batch: string;

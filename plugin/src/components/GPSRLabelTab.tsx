@@ -1,12 +1,12 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Download, LoaderCircle } from 'lucide-react';
-import type { Company, GpsrLabelDraft, LocalizedText, ProductSnapshot } from '../types';
+import type { Company, GpsrLabelDraft, LocalizedText, ProductNameSource, ProductSnapshot } from '../types';
 import { useComplianceProfile } from '../storage/profile';
 import { useGpsrLabelDraft } from '../storage/gpsrLabelDraft';
 import { flushStorage } from '../storage/localStore';
 import { createDefaultGpsrLabelDraft } from '../utils/gpsrLabel';
 import { translateProductName } from '../utils/gpsrTranslation';
-import { readCurrentProductTitle } from '../utils/productImport';
+import { readCurrentProductName } from '../utils/productImport';
 import { exportGpsrLabel } from '../utils/pdf/gpsrLabel';
 import { CompanyFields } from './CompanyFields';
 import { FeedbackDialog } from './FeedbackDialog';
@@ -30,15 +30,19 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
 
   const setField = <Key extends keyof GpsrLabelDraft>(key: Key, value: GpsrLabelDraft[Key]) => label.setField(key, value);
   const setProductName = (language: keyof LocalizedText, value: string) => label.setProductName(language, value);
+  const setSource = (source: ProductNameSource) => {
+    label.setProductNameSource(source);
+    setMessage('原文或语言已更新，旧译文已清除，请重新翻译并核对。');
+  };
   const updateCompany = (role: 'euRep' | 'manufacturer', key: keyof Company, value: string) => {
     (role === 'euRep' ? companyFields.setEuRep : companyFields.setManufacturer)(key, value);
   };
 
   const importProduct = async () => {
     try {
-      const title = await readCurrentProductTitle(product);
-      setProductName('zh', title);
-      setMessage('已导入商品标题，请翻译并核对三语品名。');
+      const source = await readCurrentProductName(product);
+      label.setProductNameSource(source);
+      setMessage('已导入商品标题并清除旧译文，请确认原文语言后翻译。');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '商品标题读取失败，请重试。');
     }
@@ -47,13 +51,12 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
   const translate = async () => {
     if (translating) return;
     setTranslating(true);
-    setMessage('正在请求三语翻译…');
+    setMessage('正在请求翻译…');
+    const expected = label.draft;
     try {
-      const translations = await translateProductName(label.draft.productName.zh);
-      setProductName('ro', translations.ro);
-      setProductName('bg', translations.bg);
-      setProductName('hu', translations.hu);
-      setMessage('翻译已填入，请核对后再导出。');
+      const translations = await translateProductName(expected.productNameSource.text, expected.productNameSource.language);
+      const applied = label.applyTranslations(expected, translations);
+      setMessage(applied ? '中文对照和三语品名已填入，请核对后再导出。' : '品名已编辑，已忽略过期翻译，请按当前原文重新翻译。');
     } catch (error) {
       setMessage(error instanceof Error ? error.message : '翻译失败，请稍后重试。');
     } finally { setTranslating(false); }
@@ -63,6 +66,7 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
     const defaults = createDefaultGpsrLabelDraft();
     label.setDraft({
       ...label.draft,
+      productNameSource: { text: '', language: 'zh-CN' },
       productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', batch: defaults.batch,
       ean13: '', manualUrl: '',
     });
@@ -95,7 +99,7 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
         container.current?.querySelector(`#${id}`)?.scrollIntoView({ block: 'start', behavior: 'auto' });
       }}>{title}</button>)}
     </nav>
-    <GpsrProductFields sectionId="gpsr-product" draft={label.draft} onField={setField} onName={setProductName} onImport={() => { void importProduct(); }}
+    <GpsrProductFields sectionId="gpsr-product" draft={label.draft} onField={setField} onName={setProductName} onSource={setSource} onImport={() => { void importProduct(); }}
       onReset={resetProduct} onTranslate={() => { void translate(); }} translating={translating} message={message}/>
     <CompanyFields sectionId="gpsr-eu-rep" company={companyFields.profile.euRep} onChange={(key, value) => updateCompany('euRep', key, value)} gpsr
       headingAction={<button className="gpsr-service-link" type="button" onClick={() => setServiceOpen(true)}>没有欧代？点击特惠办理</button>}/>

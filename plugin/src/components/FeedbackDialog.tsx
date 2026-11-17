@@ -50,7 +50,7 @@ export function FeedbackDialog({ onClose, title = '问题反馈 / 功能定制',
       <dl className="feedback-details"><div><dt>微信</dt><dd className="feedback-wechat"><span>{feedbackConfig.wechat || '待配置'}</span>{feedbackConfig.wechat && <button type="button" className="feedback-copy" onClick={copyWechat}>{copyStatus === 'success' ? '已复制' : '复制'}</button>}</dd></div><div><dt>当前版本</dt><dd>{getExtensionVersion()}</dd></div></dl>
       <p className="helper" role="status">{copyStatus === 'error' ? '复制失败，请手动复制微信号。' : copyStatus === 'success' ? '微信号已复制，可粘贴到微信添加好友。' : ''}</p>
       {qrCodeUrl ? <img className="feedback-qr" src={qrCodeUrl} alt="微信联系二维码"/> : <div className="feedback-qr-placeholder">联系二维码待配置</div>}
-      <p className="helper">数据仅保存在本机，不上传商品或企业信息。</p>
+      <p className="helper">表单保存在本机；翻译和图搜会发送所需品名或图片。</p>
     </div>
   </div>;
 }

@@ -57,9 +57,9 @@ describe('GPSR 标签表单', () => {
       lowestOtherOfferRon: null, sources: {}, missingFields: [], capturedAt: 0 };
     render(<GPSRLabelTab product={product}/>);
     fireEvent.click(screen.getByRole('button', { name: '从当前商品导入' }));
-    await waitFor(() => expect((screen.getByLabelText('商品原始品名 / 中文品名') as HTMLInputElement).value).toBe('蓝牙耳机'));
+    await waitFor(() => expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('蓝牙耳机'));
     fireEvent.click(screen.getByRole('button', { name: '清空重填' }));
-    expect((screen.getByLabelText('商品原始品名 / 中文品名') as HTMLInputElement).value).toBe('');
+    expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('');
     expect((screen.getByLabelText('生产批次 · Batch No.') as HTMLInputElement).value).toMatch(/^LOT-\d{8}$/);
   });
 
@@ -70,8 +70,8 @@ describe('GPSR 标签表单', () => {
       return Response.json({ responseStatus: 200, responseData: { translatedText: translations[target] } });
     }));
     render(<GPSRLabelTab product={null}/>);
-    fireEvent.change(screen.getByLabelText('商品原始品名 / 中文品名'), { target: { value: '蓝牙耳机' } });
-    fireEvent.click(screen.getByRole('button', { name: 'AI / 翻译转三语' }));
+    fireEvent.change(screen.getByLabelText('商品原始品名'), { target: { value: '蓝牙耳机' } });
+    fireEvent.click(screen.getByRole('button', { name: '翻译并生成三语品名' }));
     await waitFor(() => expect((screen.getByLabelText('罗马尼亚语 · RO') as HTMLInputElement).value).toBe('Căști Bluetooth'));
     expect((screen.getByLabelText('保加利亚语 · BG') as HTMLInputElement).value).toBe('Bluetooth слушалки');
     expect((screen.getByLabelText('匈牙利语 · HU') as HTMLInputElement).value).toBe('Bluetooth fülhallgató');
@@ -86,7 +86,7 @@ describe('GPSR 标签表单', () => {
       fireEvent.click(within(section).getByRole('button', { name: /填写资料|编辑详情/ }));
     }
     const values: Record<string, string> = {
-      '商品原始品名 / 中文品名': '蓝牙耳机',
+      '商品原始品名': '蓝牙耳机',
       '罗马尼亚语 · RO': 'Căști Bluetooth',
       '保加利亚语 · BG': 'Bluetooth слушалки',
       '匈牙利语 · HU': 'Bluetooth fülhallgató',

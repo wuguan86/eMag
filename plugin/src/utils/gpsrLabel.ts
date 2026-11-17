@@ -1,4 +1,5 @@
 import type { GpsrLabelDraft, GpsrLabelOrientation, GpsrLabelSize, GpsrMaterialId, GpsrWarningId } from '../types';
+import { isProductNameLanguage } from './productNameSource';
 
 export const GPSR_LABEL_MARGIN_MM = 2;
 const MAX_PAGE_MM = 5000;
@@ -73,6 +74,9 @@ export function isGpsrLabelDraft(value: unknown): value is GpsrLabelDraft {
   const draft = value as Partial<GpsrLabelDraft>;
   const names = draft.productName as Partial<GpsrLabelDraft['productName']> | undefined;
   return typeof names?.zh === 'string' && typeof names.ro === 'string' && typeof names.bg === 'string' && typeof names.hu === 'string'
+    && (draft.productNameSource === undefined || (typeof draft.productNameSource?.text === 'string'
+      && (draft.productNameSource.language === '' || isProductNameLanguage(draft.productNameSource.language))))
+    && (draft.productNameRevision === undefined || typeof draft.productNameRevision === 'string')
     && (draft.material === '' || materialOptions.some((item) => item.id === draft.material))
     && ['model', 'batch', 'ean13', 'manualUrl'].every((key) => typeof draft[key as keyof GpsrLabelDraft] === 'string')
     && (draft.labelSize === '70x80' || draft.labelSize === '80x80' || draft.labelSize === '100x100' || draft.labelSize === 'custom')
