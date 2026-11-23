@@ -32,11 +32,21 @@ describe('GPSR 标签 PDF', () => {
     expect(labelText.indexOf('Manufacturer: Shenzhen Audio Co Ltd')).toBeLessThan(labelText.indexOf('Name: EU Safety SRL'));
     expect(layout.frame).toEqual({ x: 2, y: 2, width: 66, height: 76 });
     expect(layout.rules).toHaveLength(4);
-    expect(layout.euRepLogo).toMatchObject({ height: 12, dividerX: expect.any(Number) });
+    const [productEnd, manufacturerEnd, repEnd, warningEnd] = layout.rules.map((rule) => rule.y1);
+    expect(productEnd - layout.frame.y).toBeGreaterThan(10.9);
+    expect(manufacturerEnd - productEnd).toBeGreaterThan(10);
+    expect(warningEnd).toBe(layout.bottomColumns.top);
+    expect(layout.bottomColumns.bottom - warningEnd).toBeLessThan(24);
+    expect(layout.euRepLogo.height).toBeLessThan(8);
+    expect(layout.euRepLogo.y + layout.euRepLogo.height / 2).toBeCloseTo((manufacturerEnd + repEnd) / 2);
+    const logoText = layout.lines.filter((line) => line.region === 'EU REP 标志');
+    expect(logoText.map((line) => line.text)).toEqual(['EU', 'REP']);
+    expect(logoText.every((line) => (line.strokeWidth ?? 0) > 0.12 && line.fontSize > 12)).toBe(true);
     expect(layout.qrCode?.size).toBe(18);
     expect(layout.bottomColumns?.dividerX).toBeGreaterThan(layout.bottomColumns?.leftX ?? 0);
     expect(labelText.replace(/\s+/g, ' ')).toContain('Pentru a evita pericolul de sufocare, țineți această pungă de plastic departe de bebeluși și copii.');
     expect(layout.icons.map((icon) => icon.id)).toEqual(['ce', 'age']);
+    expect(gpsrLabelLayoutToSvg(layout)).not.toMatch(/#ed1c24/i);
 
     const doc = await createGpsrLabelPdf(data);
     expect(doc.internal.pageSize.getWidth()).toBeCloseTo(70, 5);

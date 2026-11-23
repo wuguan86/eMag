@@ -7,6 +7,22 @@ beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('GPSR 标签表单', () => {
+  it('材质选项显示中文和三种当地语言', async () => {
+    render(<GPSRLabelTab product={null}/>);
+    const materialSelect = screen.getByRole('combobox', { name: '产品材质' }) as HTMLSelectElement;
+
+    expect(Array.from(materialSelect.options, ({ value, text }) => [value, text])).toEqual([
+      ['', '请选择材质'],
+      ['plastic', '塑料 · Plastic / Пластмаса / Műanyag'],
+      ['silicone', '硅胶 · Silicon / Силикон / Szilikon'],
+      ['metal', '金属 · Metal / Метал / Fém'],
+      ['stainlessSteel', '不锈钢 · Oțel inoxidabil / Неръждаема стомана / Rozsdamentes acél'],
+      ['textile', '织物 · Textil / Текстил / Textil'],
+      ['wood', '木质 · Lemn / Дърво / Fa'],
+    ]);
+    await screen.findByRole('alert');
+  });
+
   it('仅显示产品编号输入框，不显示批次输入框', () => {
     render(<GPSRLabelTab product={null}/>);
 

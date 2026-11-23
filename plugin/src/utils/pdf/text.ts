@@ -2,7 +2,7 @@ import type { jsPDF } from 'jspdf';
 import { fontForCharacter, type loadFontAssets, type PdfFont } from './fonts';
 
 export interface TextRun { text: string; font: PdfFont; width: number }
-export interface TextLine { runs: TextRun[]; text: string; x: number; y: number; fontSize: number; region: string; bold?: boolean }
+export interface TextLine { runs: TextRun[]; text: string; x: number; y: number; fontSize: number; region: string; strokeWidth?: number }
 export type FontAssets = Awaited<ReturnType<typeof loadFontAssets>>;
 
 export function normalizeText(text: string) {
@@ -45,11 +45,12 @@ export function wrapText(doc: jsPDF, text: string, width: number, fontSize: numb
 
 export function drawTextLine(doc: jsPDF, line: TextLine) {
   doc.setFontSize(line.fontSize);
+  const { strokeWidth } = line;
+  if (strokeWidth) doc.setLineWidth(strokeWidth);
   let x = line.x;
   for (const run of line.runs) {
-    doc.setFont(run.font, line.bold ? 'bold' : 'normal');
-    if (line.bold) doc.setLineWidth(0.12);
-    doc.text(run.text, x, line.y, { baseline: 'alphabetic', renderingMode: line.bold ? 'fillThenStroke' : 'fill' });
+    doc.setFont(run.font, 'normal');
+    doc.text(run.text, x, line.y, { baseline: 'alphabetic', renderingMode: strokeWidth ? 'fillThenStroke' : 'fill' });
     x += run.width;
   }
 }

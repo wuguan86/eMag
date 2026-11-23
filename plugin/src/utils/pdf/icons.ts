@@ -2,8 +2,12 @@ import type { jsPDF } from 'jspdf';
 import type { ComplianceIcon } from '../../types';
 import { iconData } from './iconData';
 
-export interface LabelIcon { id: ComplianceIcon; x: number; y: number; width: number; height: number }
+export interface LabelIcon { id: ComplianceIcon; x: number; y: number; width: number; height: number; monochrome?: boolean }
 type VectorPath = { d: string; operations: readonly { op: string; c: readonly number[] }[]; fill: string; stroke: string; strokeWidth: number; evenOdd: boolean };
+
+function resolveFill(path: VectorPath, icon: LabelIcon) {
+  return icon.monochrome && path.fill !== 'none' ? '#000000' : path.fill;
+}
 
 export function iconDimensions(id: ComplianceIcon) {
   const data = iconData[id];
@@ -22,7 +26,8 @@ export function drawIcon(doc: jsPDF, icon: LabelIcon) {
   const data = iconData[icon.id];
   const scale = icon.width / data.width;
   for (const path of data.paths as readonly VectorPath[]) {
-    doc.setFillColor(path.fill === '#ED1C24' ? '#ED1C24' : '#000000');
+    const fill = resolveFill(path, icon);
+    if (fill !== 'none') doc.setFillColor(fill);
     doc.setDrawColor('#000000');
     doc.setLineWidth(path.strokeWidth * scale);
     doc.path(path.operations.map((operation) => ({ op: operation.op, c: operation.c.map((value, index) => value * scale + (index % 2 ? icon.y : icon.x)) })));
@@ -34,6 +39,6 @@ export function drawIcon(doc: jsPDF, icon: LabelIcon) {
 
 export function iconSvg(icon: LabelIcon) {
   const data = iconData[icon.id];
-  const paths = (data.paths as readonly VectorPath[]).map((path) => `<path d="${path.d}" fill="${path.fill}" stroke="${path.stroke}" stroke-width="${path.strokeWidth}" fill-rule="${path.evenOdd ? 'evenodd' : 'nonzero'}"/>`).join('');
+  const paths = (data.paths as readonly VectorPath[]).map((path) => `<path d="${path.d}" fill="${resolveFill(path, icon)}" stroke="${path.stroke}" stroke-width="${path.strokeWidth}" fill-rule="${path.evenOdd ? 'evenodd' : 'nonzero'}"/>`).join('');
   return `<svg x="${icon.x}" y="${icon.y}" width="${icon.width}" height="${icon.height}" viewBox="0 0 ${data.width} ${data.height}">${paths}</svg>`;
 }

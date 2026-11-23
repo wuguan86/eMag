@@ -43,7 +43,10 @@ export function GpsrProductFields({ draft, onField, onName, onSource, onImport, 
       </div>;
     })}
     <div className="field"><label htmlFor={materialId}>产品材质</label><select id={materialId} value={draft.material} onChange={(event) => onField('material', event.target.value as GpsrLabelDraft['material'])}>
-      <option value="">请选择材质</option>{materialOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      <option value="">请选择材质</option>
+      {materialOptions.map(({ id, label, ro, bg, hu }) => (
+        <option key={id} value={id}>{label} · {ro} / {bg} / {hu}</option>
+      ))}
     </select></div>
     <TextField label="产品编号" value={draft.model} onChange={(value) => onField('model', value)} maxLength={80}/>
     <TextField label="产品尺寸" value={draft.productSize ?? ''} onChange={(value) => onField('productSize', value)} optional maxLength={80}/>
