@@ -24,7 +24,7 @@ describe('GPSR 标签 PDF', () => {
     expect(layout.qrCode?.x).toBe(56);
     expect(layout.lines.map((line) => line.text).join(' ')).toContain('Căști Bluetooth');
     expect(layout.lines.map((line) => line.text).join(' ')).not.toContain('蓝牙耳机');
-    expect(layout.icons).toHaveLength(2);
+    expect(layout.icons.map((icon) => icon.id)).toEqual(['ce']);
 
     const doc = await createGpsrLabelPdf(data);
     expect(doc.internal.pageSize.getWidth()).toBeCloseTo(70, 5);
@@ -119,7 +119,7 @@ describe('GPSR 标签 PDF', () => {
     expect(preview).toContain('clipPath');
     expect(preview).toContain('clip-path="url(#company-0)"');
     expect(preview).toContain('clip-path="url(#company-1)"');
-    expect(layout.icons).toHaveLength(4);
+    expect(layout.icons.map((icon) => icon.id)).toEqual(['ce', 'age']);
     expect(layout.icons.every((icon) => icon.height >= 6 && icon.height <= 7)).toBe(true);
     expect(layout.boxes.every((box) => box.height >= 19)).toBe(true);
   });

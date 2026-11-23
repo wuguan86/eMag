@@ -4,9 +4,7 @@ import { Section } from './Fields';
 
 const iconOptions = [
   { value: 'ce', label: 'CE 标志', detail: '仅用于适用的欧盟协调法规产品' },
-  { value: 'weee', label: 'WEEE 垃圾桶', detail: '仅用于电气电子设备' },
   { value: 'age', label: '0–3 岁禁玩', detail: '仅用于存在对应年龄风险的产品' },
-  { value: 'triman', label: '法国 Triman 回收标', detail: '法国市场适用时选择' },
 ] as const;
 
 export function GpsrLabelSettings({ draft, onField, sectionId }: {
@@ -16,9 +14,11 @@ export function GpsrLabelSettings({ draft, onField, sectionId }: {
 }) {
   const sizeId = useId();
   const warningId = useId();
-  const changeIcon = (icon: GpsrLabelDraft['icons'][number], selected: boolean) => {
-    const icons = selected ? [...draft.icons, icon] : draft.icons.filter((value) => value !== icon);
-    onField('icons', [...new Set(icons)]);
+  const changeIcon = (icon: typeof iconOptions[number]['value'], selected: boolean) => {
+    const icons = new Set(draft.icons.filter((value) => value === 'ce' || value === 'age'));
+    if (selected) icons.add(icon);
+    else icons.delete(icon);
+    onField('icons', [...icons]);
   };
   return <Section id={sectionId} title="标签尺寸与安全信息">
     <div className="gpsr-size-orientation">

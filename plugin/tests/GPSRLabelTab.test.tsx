@@ -54,7 +54,8 @@ describe('GPSR 标签表单', () => {
     expect((screen.getByLabelText('打印尺寸') as HTMLSelectElement).value).toBe('70x80');
     expect(screen.getByRole('button', { name: '0° · 纵向' }).getAttribute('aria-pressed')).toBe('true');
     expect((screen.getByRole('checkbox', { name: /CE 标志/ }) as HTMLInputElement).checked).toBe(false);
-    expect((screen.getByRole('checkbox', { name: /WEEE/ }) as HTMLInputElement).checked).toBe(false);
+    expect(screen.queryByRole('checkbox', { name: /WEEE/ })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /Triman/ })).toBeNull();
     expect((screen.getByLabelText('安全警示语') as HTMLSelectElement).value).toBe('none');
     expect((screen.getByRole('button', { name: /一键下载热敏打印 PDF/ }) as HTMLButtonElement).disabled).toBe(true);
     await screen.findByRole('alert');

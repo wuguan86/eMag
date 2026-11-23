@@ -122,7 +122,8 @@ export async function createGpsrLabelLayout(data: GpsrLabelData): Promise<GpsrLa
   const warningTexts = [['RO', warning.ro], ['BG', warning.bg], ['HU', warning.hu]] as const;
   const warningRows = warningTexts.reduce((total, [, text]) => total + (text ? wrapText(doc, text, contentWidth, 6, { latin: { base64: '', ranges: [[0, 65535]] }, cjk: { base64: '', ranges: [] } }).length : 0), 0);
   const plannedWarningHeight = warningRows * lineHeight(6) + (warningRows ? 0.3 : 0);
-  const iconSizes = [...new Set(data.draft.icons)].map((id) => ({ id, ...gpsrIconDimensions(id) }));
+  const iconSizes = [...new Set(data.draft.icons)].filter((id) => id === 'ce' || id === 'age')
+    .map((id) => ({ id, ...gpsrIconDimensions(id) }));
   const plannedIconHeight = Math.max(0, ...iconSizes.map((icon) => icon.height));
   const availableBoxHeight = bottomTop - boxTop - plannedWarningHeight - plannedIconHeight - 2.5;
   const boxBottom = boxTop + Math.min(20, Math.max(0, availableBoxHeight));
