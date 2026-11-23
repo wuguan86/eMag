@@ -14,7 +14,7 @@ export function iconDimensions(id: ComplianceIcon) {
 
 export function gpsrIconDimensions(id: ComplianceIcon) {
   const data = iconData[id];
-  const height = id === 'age' ? 7 : id === 'weee' ? 7 : 6;
+  const height = id === 'age' || id === 'ce' ? 8 : id === 'weee' ? 7 : 6;
   return { height, width: data.width / data.height * height };
 }
 

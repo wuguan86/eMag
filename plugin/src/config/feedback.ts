@@ -1,7 +1,7 @@
 import { version as packageVersion } from '../../package.json';
 
-// 正式联系方式配置后即可展示；空值明确显示待配置，不生成虚假联系方式。
-export const feedbackConfig = { wechat: 'wuguan86', qrCodePath: 'wechat-qr.png' };
+// 构建时注入可公开的联系邮箱，反馈与欧代咨询共用此配置。
+export const feedbackConfig = { email: import.meta.env.VITE_SUPPORT_EMAIL?.trim() ?? '' };
 
 export function getExtensionVersion() {
   try { return globalThis.chrome?.runtime?.getManifest?.().version || packageVersion; }

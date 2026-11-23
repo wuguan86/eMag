@@ -46,6 +46,7 @@ export function GpsrProductFields({ draft, onField, onName, onSource, onImport, 
       <option value="">请选择材质</option>{materialOptions.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
     </select></div>
     <TextField label="产品编号" value={draft.model} onChange={(value) => onField('model', value)} maxLength={80}/>
+    <TextField label="产品尺寸" value={draft.productSize ?? ''} onChange={(value) => onField('productSize', value)} optional maxLength={80}/>
     {message && <p className="export-message" role="status">{message}</p>}
   </Section>;
 }

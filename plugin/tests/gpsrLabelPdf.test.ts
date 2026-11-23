@@ -1,3 +1,4 @@
+import JsBarcode from 'jsbarcode';
 import { describe, expect, it } from 'vitest';
 import type { GpsrLabelData } from '../src/types';
 import { createGpsrLabelLayout, createGpsrLabelPdf, gpsrLabelLayoutToSvg } from '../src/utils/pdf/gpsrLabel';
@@ -5,7 +6,7 @@ import { createGpsrLabelLayout, createGpsrLabelPdf, gpsrLabelLayoutToSvg } from 
 const data: GpsrLabelData = {
   draft: {
     productName: { zh: '蓝牙耳机', ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' },
-    material: 'plastic', model: 'B003', batch: 'LOT-20261117', ean13: '5901234123457',
+    material: 'plastic', model: 'B003', productSize: '42 cm', batch: 'v2024122719', ean13: '5901234123457',
     manualUrl: 'https://example.com/manual.pdf', labelSize: '70x80', customWidth: 70,
     customHeight: 80, orientation: 0, icons: ['ce', 'weee'], warningId: 'choking',
   },
@@ -16,15 +17,26 @@ const data: GpsrLabelData = {
 describe('GPSR 标签 PDF', () => {
   it('将多语言主体、图标、条码与二维码放入 70 × 80 mm 安全边距内', async () => {
     const layout = await createGpsrLabelLayout(data);
-    expect(layout.valid).toBe(true);
+    expect(layout.valid, layout.errors.join(' ')).toBe(true);
     expect([layout.width, layout.height, layout.margin]).toEqual([70, 80, 2]);
     expect(layout.barcode).not.toBeNull();
     expect(layout.qrCode).not.toBeNull();
-    expect(layout.qrCode?.size).toBe(12);
-    expect(layout.qrCode?.x).toBe(56);
+    expect(layout.qrCode?.size).toBe(18);
+    expect(layout.qrCode?.x).toBeGreaterThan(layout.bottomColumns.dividerX);
     expect(layout.lines.map((line) => line.text).join(' ')).toContain('Căști Bluetooth');
     expect(layout.lines.map((line) => line.text).join(' ')).not.toContain('蓝牙耳机');
-    expect(layout.icons.map((icon) => icon.id)).toEqual(['ce']);
+    const labelText = layout.lines.map((line) => line.text).join('\n');
+    expect(labelText.replace(/\s+/g, ' ')).toContain('Product Name: Căști Bluetooth/Bluetooth слушалки/Bluetooth fülhallgató');
+    expect(labelText).toContain('Product Material: Plastic/Пластмаса/Műanyag');
+    expect(labelText).toContain('Batch Number: v2024122719');
+    expect(labelText.indexOf('Manufacturer: Shenzhen Audio Co Ltd')).toBeLessThan(labelText.indexOf('Name: EU Safety SRL'));
+    expect(layout.frame).toEqual({ x: 2, y: 2, width: 66, height: 76 });
+    expect(layout.rules).toHaveLength(4);
+    expect(layout.euRepLogo).toMatchObject({ height: 12, dividerX: expect.any(Number) });
+    expect(layout.qrCode?.size).toBe(18);
+    expect(layout.bottomColumns?.dividerX).toBeGreaterThan(layout.bottomColumns?.leftX ?? 0);
+    expect(labelText.replace(/\s+/g, ' ')).toContain('Pentru a evita pericolul de sufocare, țineți această pungă de plastic departe de bebeluși și copii.');
+    expect(layout.icons.map((icon) => icon.id)).toEqual(['ce', 'age']);
 
     const doc = await createGpsrLabelPdf(data);
     expect(doc.internal.pageSize.getWidth()).toBeCloseTo(70, 5);
@@ -55,13 +67,27 @@ describe('GPSR 标签 PDF', () => {
     };
     const layout = await createGpsrLabelLayout(qrOnly);
     expect(layout.barcode).toBeNull();
-    expect(layout.qrCode).toMatchObject({ x: 29, size: 12 });
+    expect(layout.qrCode).toMatchObject({ size: 18 });
     expect(gpsrLabelLayoutToSvg(layout)).toContain('xlink:href="data:image/png;base64,');
   });
 
-  it('在有 EAN 或 URL 错误時拒绝导出', async () => {
-    await expect(createGpsrLabelPdf({ ...data, draft: { ...data.draft, ean13: '5901234123458' } }))
-      .rejects.toThrow('EAN-13');
+  it.each(['753758108612', '0590123412348'])('将商品码 %s 按原值编码为 Code 128 并生成 PDF', async (ean13) => {
+    const withBarcode = { ...data, draft: { ...data.draft, ean13 } };
+    const layout = await createGpsrLabelLayout(withBarcode);
+    expect(layout.valid, layout.errors.join(' ')).toBe(true);
+    expect(layout.barcode?.value).toBe(ean13);
+    const expected = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    JsBarcode(expected, ean13, { format: 'CODE128', width: 1, displayValue: false });
+    const barcodeSvg = new DOMParser().parseFromString(layout.barcode!.svg, 'image/svg+xml');
+    const bars = (root: ParentNode) => [...root.querySelectorAll('g rect')].map((rect) => [rect.getAttribute('x'), rect.getAttribute('width')]);
+    expect(bars(barcodeSvg)).toEqual(bars(expected));
+    expect(layout.lines.some((line) => line.text === ean13)).toBe(true);
+    await expect(createGpsrLabelPdf(withBarcode)).resolves.toBeTruthy();
+  });
+
+  it('在商品码或说明书 URL 无效时拒绝导出', async () => {
+    await expect(createGpsrLabelPdf({ ...data, draft: { ...data.draft, ean13: '59012341234A' } }))
+      .rejects.toThrow('12 或 13 位数字');
     await expect(createGpsrLabelPdf({ ...data, draft: { ...data.draft, manualUrl: 'javascript:alert(1)' } }))
       .rejects.toThrow('HTTP(S)');
   });
@@ -90,7 +116,7 @@ describe('GPSR 标签 PDF', () => {
     })).rejects.toThrow('制造商');
   });
 
-  it('企业资料溢出时将两栏文字限制在各自边框内，避免压住标志和警示语', async () => {
+  it('企业资料过长时阻止标签导出，避免压住标志和警示语', async () => {
     const crowded: GpsrLabelData = {
       ...data,
       draft: {
@@ -114,13 +140,10 @@ describe('GPSR 标签 PDF', () => {
       },
     };
     const layout = await createGpsrLabelLayout(crowded);
-    expect(layout.valid).toBe(true);
+    expect(layout.valid, layout.errors.join(' ')).toBe(true);
     const preview = gpsrLabelLayoutToSvg(layout);
-    expect(preview).toContain('clipPath');
-    expect(preview).toContain('clip-path="url(#company-0)"');
-    expect(preview).toContain('clip-path="url(#company-1)"');
+    expect(preview).toContain('stroke-width="0.3"');
     expect(layout.icons.map((icon) => icon.id)).toEqual(['ce', 'age']);
-    expect(layout.icons.every((icon) => icon.height >= 6 && icon.height <= 7)).toBe(true);
-    expect(layout.boxes.every((box) => box.height >= 19)).toBe(true);
+    expect(layout.rules).toHaveLength(4);
   });
 });

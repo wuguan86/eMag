@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { GPSRLabelTab } from '../src/components/GPSRLabelTab';
+import { flushStorage } from '../src/storage/localStore';
 
 beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -10,8 +11,17 @@ describe('GPSR 标签表单', () => {
     render(<GPSRLabelTab product={null}/>);
 
     expect(screen.getByLabelText('产品编号')).toBeTruthy();
+    expect(screen.getByLabelText(/产品尺寸/)).toBeTruthy();
     expect(screen.queryByLabelText('型号 · Model No.')).toBeNull();
     expect(screen.queryByLabelText('生产批次 · Batch No.')).toBeNull();
+  });
+
+  it('清空重填时清除产品尺寸', () => {
+    render(<GPSRLabelTab product={null}/>);
+    const productSize = screen.getByLabelText(/产品尺寸/) as HTMLInputElement;
+    fireEvent.change(productSize, { target: { value: '42 cm' } });
+    fireEvent.click(screen.getByRole('button', { name: '清空重填' }));
+    expect(productSize.value).toBe('');
   });
 
   it('分区导航在隔离容器内定位目标且不修改页面地址', () => {
@@ -49,14 +59,11 @@ describe('GPSR 标签表单', () => {
     expect(within(rep).queryByRole('textbox', { name: 'Company Name' })).toBeNull();
   });
 
-  it('显示新默认尺寸、适用性标志与无警示语默认值', async () => {
+  it('显示新默认尺寸与固定合规标志和三语警示', async () => {
     render(<GPSRLabelTab product={null}/>);
     expect((screen.getByLabelText('打印尺寸') as HTMLSelectElement).value).toBe('70x80');
     expect(screen.getByRole('button', { name: '0° · 纵向' }).getAttribute('aria-pressed')).toBe('true');
-    expect((screen.getByRole('checkbox', { name: /CE 标志/ }) as HTMLInputElement).checked).toBe(false);
-    expect(screen.queryByRole('checkbox', { name: /WEEE/ })).toBeNull();
-    expect(screen.queryByRole('checkbox', { name: /Triman/ })).toBeNull();
-    expect((screen.getByLabelText('安全警示语') as HTMLSelectElement).value).toBe('none');
+    expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
     expect((screen.getByRole('button', { name: /一键下载热敏打印 PDF/ }) as HTMLButtonElement).disabled).toBe(true);
     await screen.findByRole('alert');
   });
@@ -89,7 +96,7 @@ describe('GPSR 标签表单', () => {
     expect((screen.getByLabelText('罗马尼亚语 · RO') as HTMLInputElement).value).toBe('Căști modificate');
   });
 
-  it('有效标签布局完成后启用 PDF 下载并渲染说明书二维码', async () => {
+  it('保存 12 位商品码并启用 PDF 下载，同时渲染条码与说明书二维码', async () => {
     const { container } = render(<GPSRLabelTab product={null}/>);
     for (const title of ['欧盟责任人 · EU REP', '制造商 · Manufacturer']) {
       const section = screen.getByRole('heading', { name: title }).closest('section')!;
@@ -101,6 +108,7 @@ describe('GPSR 标签表单', () => {
       '保加利亚语 · BG': 'Bluetooth слушалки',
       '匈牙利语 · HU': 'Bluetooth fülhallgató',
       '产品编号': 'B003',
+      '产品材质': 'plastic',
       'EU Postal Address': 'EU Street 1, Bucharest',
       'Production Address': 'Building 2, Shenzhen, China',
     };
@@ -111,12 +119,16 @@ describe('GPSR 标签表单', () => {
     const emails = screen.getAllByLabelText('Email');
     fireEvent.change(emails[0], { target: { value: 'safety@example.eu' } });
     fireEvent.change(emails[1], { target: { value: 'factory@example.cn' } });
+    fireEvent.change(screen.getByLabelText(/EAN \/ UPC 商品码/), { target: { value: '753758108612' } });
     fireEvent.change(screen.getByLabelText(/说明书 \/ 安全声明 URL/), { target: { value: 'https://example.com/manual.pdf' } });
 
     const download = screen.getByRole('button', { name: /一键下载热敏打印 PDF/ });
     await waitFor(() => expect((download as HTMLButtonElement).disabled).toBe(false), {
       onTimeout: (error) => new Error(`${error.message}\n${[...container.querySelectorAll('[role="alert"]')].map((item) => item.textContent).join('\n')}`),
     });
+    expect(screen.getByLabelText('Code 128 条码预览').querySelector('g rect')).toBeTruthy();
     expect(container.querySelector('.gpsr-preview-paper image')?.getAttribute('xlink:href')).toMatch(/^data:image\/png;base64,/);
+    await flushStorage();
+    expect(JSON.parse(localStorage.getItem('emag:v1:gpsrLabel.draft')!).value.ean13).toBe('753758108612');
   });
 });

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { isValidEan13, isValidManualUrl, resolveGpsrPageSize } from '../src/utils/gpsrLabel';
+import { isValidGpsrBarcode } from '../src/utils/gpsrBarcode';
+import { isValidManualUrl, resolveGpsrPageSize } from '../src/utils/gpsrLabel';
 
 describe('GPSR 标签数据校验', () => {
-  it('仅接受校验位正确的 13 位 EAN-13', () => {
-    expect(isValidEan13('5901234123457')).toBe(true);
-    expect(isValidEan13('5901234123458')).toBe(false);
-    expect(isValidEan13('590123412345')).toBe(false);
-    expect(isValidEan13('59012341234a7')).toBe(false);
+  it('接受 12 或 13 位商品码并拒绝其余输入', () => {
+    expect(isValidGpsrBarcode('753758108612')).toBe(true);
+    expect(isValidGpsrBarcode('0590123412348')).toBe(true);
+    expect(isValidGpsrBarcode('59012341234')).toBe(false);
+    expect(isValidGpsrBarcode('59012341234567')).toBe(false);
+    expect(isValidGpsrBarcode('59012341234a7')).toBe(false);
   });
 
   it('仅接受说明书网页或 PDF 的 HTTP(S) 地址', () => {

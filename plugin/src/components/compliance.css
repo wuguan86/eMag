@@ -17,11 +17,10 @@
 .feedback-details dt { color: #68758e; }
 .feedback-details dd { overflow-wrap: anywhere; }
 .feedback-details > div { align-items: center; }
-.feedback-wechat { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.feedback-email { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.feedback-email a { color: #1d4ed8; text-decoration: underline; }
 .feedback-copy { flex-shrink: 0; padding: 2px 7px; border-radius: 4px; background: #eef3ff; color: #1d4ed8 !important; font-size: 11px !important; }
 .feedback-copy:hover { background: #dfe9ff; }
-.feedback-qr { display: block; width: 150px; height: 150px; object-fit: contain; margin: 16px auto; }
-.feedback-qr-placeholder { border: 1px dashed #cbd8ed; padding: 24px 12px; text-align: center; color: #7d899c; background: #f8faff; border-radius: 6px; }
 .gpsr-label-tab { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
 .gpsr-label-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .gpsr-label-content > .section { padding: 16px 20px; scroll-margin-top: 42px; }

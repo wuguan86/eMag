@@ -16,10 +16,10 @@ export const materialOptions: { id: GpsrMaterialId; label: string; en: string; r
 export const warningOptions: Record<GpsrWarningId, { label: string; ro: string; bg: string; hu: string }> = {
   none: { label: '无警示语', ro: '', bg: '', hu: '' },
   choking: {
-    label: '防窒息警告',
-    ro: 'Pericol de sufocare. Țineți departe de copii.',
-    bg: 'Опасност от задушаване. Да се пази от деца.',
-    hu: 'Fulladásveszély. Gyermekektől távol tartandó.',
+    label: '塑料袋防窒息警告 · RO / BG / HU',
+    ro: 'Pentru a evita pericolul de sufocare, țineți această pungă de plastic departe de bebeluși și copii.',
+    bg: 'За да избегнете опасност от задушаване, дръжте тази пластмасова торбичка далеч от бебета и деца.',
+    hu: 'A fulladásveszély elkerülése érdekében tartsa ezt a műanyag zacskót csecsemőktől és gyermekektől távol.',
   },
   fire: {
     label: '远离火源',
@@ -32,12 +32,6 @@ export const warningOptions: Record<GpsrWarningId, { label: string; ro: string; 
 const presetSizes: Record<Exclude<GpsrLabelSize, 'custom'>, readonly [number, number]> = {
   '70x80': [70, 80], '80x80': [80, 80], '100x100': [100, 100],
 };
-
-export function isValidEan13(value: string): boolean {
-  if (!/^\d{13}$/.test(value)) return false;
-  const sum = [...value.slice(0, 12)].reduce((total, digit, index) => total + Number(digit) * (index % 2 ? 3 : 1), 0);
-  return (10 - sum % 10) % 10 === Number(value[12]);
-}
 
 export function isValidManualUrl(value: string): boolean {
   if (!value.trim()) return true;
@@ -63,9 +57,9 @@ export function resolveGpsrPageSize(input: Pick<GpsrLabelDraft, 'labelSize' | 'c
 export function createDefaultGpsrLabelDraft(now = new Date()): GpsrLabelDraft {
   const date = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
   return {
-    productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', batch: `LOT-${date}`,
+    productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', productSize: '', batch: `LOT-${date}`,
     ean13: '', manualUrl: '', labelSize: '70x80', customWidth: 70, customHeight: 80,
-    orientation: 0 as GpsrLabelOrientation, icons: [], warningId: 'none',
+    orientation: 0 as GpsrLabelOrientation, icons: [], warningId: 'choking',
   };
 }
 
@@ -79,6 +73,7 @@ export function isGpsrLabelDraft(value: unknown): value is GpsrLabelDraft {
     && (draft.productNameRevision === undefined || typeof draft.productNameRevision === 'string')
     && (draft.material === '' || materialOptions.some((item) => item.id === draft.material))
     && ['model', 'batch', 'ean13', 'manualUrl'].every((key) => typeof draft[key as keyof GpsrLabelDraft] === 'string')
+    && (draft.productSize === undefined || typeof draft.productSize === 'string')
     && (draft.labelSize === '70x80' || draft.labelSize === '80x80' || draft.labelSize === '100x100' || draft.labelSize === 'custom')
     && typeof draft.customWidth === 'number' && Number.isFinite(draft.customWidth)
     && typeof draft.customHeight === 'number' && Number.isFinite(draft.customHeight)

@@ -5,7 +5,7 @@ vi.mock('../src/components/LabelPreview', () => ({ LabelPreview: () => null }));
 // 固定空联系方式场景，避免本地正式配置改变焦点循环和占位文案断言。
 vi.mock('../src/config/feedback', async (importOriginal) => ({
   ...await importOriginal<typeof import('../src/config/feedback')>(),
-  feedbackConfig: { wechat: '', qrCodePath: '' },
+  feedbackConfig: { email: '' },
 }));
 beforeEach(() => { vi.resetModules(); vi.unstubAllGlobals(); localStorage.clear(); });
 afterEach(async () => {
@@ -40,17 +40,14 @@ describe('模板、法规参考和反馈交互', () => {
     render(<Toolkit product={null} popup/>);
     fireEvent.change(screen.getByLabelText('商品原始品名'), { target: { value: '标签商品' } });
     fireEvent.change(screen.getByLabelText('产品编号'), { target: { value: 'LABEL-1' } });
-    fireEvent.change(screen.getByLabelText('安全警示语'), { target: { value: 'choking' } });
-    fireEvent.click(screen.getByRole('checkbox', { name: /CE 标志/ }));
+    expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: 'DoC 草稿' }));
     expect((screen.getByLabelText('产品名称') as HTMLInputElement).value).toBe('');
     fireEvent.change(screen.getByLabelText('产品名称'), { target: { value: 'DoC 商品' } });
     fireEvent.click(screen.getByRole('button', { name: 'GPSR 标签' }));
     expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('标签商品');
     expect((screen.getByLabelText('产品编号') as HTMLInputElement).value).toBe('LABEL-1');
-    expect((screen.getByLabelText('安全警示语') as HTMLSelectElement).value).toBe('choking');
-    expect((screen.getByRole('checkbox', { name: /CE 标志/ }) as HTMLInputElement).checked).toBe(true);
-    expect(screen.getAllByRole('checkbox', { checked: true })).toHaveLength(1);
+    expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
   });
   it('模板另存副本、切换、删除与默认指向相互独立，切 Tab 共享微调草稿', async () => {
     const { Toolkit } = await import('../src/components/Toolkit');

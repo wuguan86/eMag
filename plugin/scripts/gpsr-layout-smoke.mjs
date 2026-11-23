@@ -35,8 +35,8 @@ try {
     const values = {
       'emag:v1:gpsrLabel.draft': stored({
         productName: { zh: '蓝牙耳机', ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' },
-        material: 'plastic', model: 'B003', batch: 'LOT-20261117', ean13: '', manualUrl: '',
-        labelSize: '70x80', customWidth: 70, customHeight: 80, orientation: 0, icons: [], warningId: 'none',
+        material: 'plastic', model: 'B003', productSize: '42 cm', batch: 'LOT-20261117', ean13: '5901234123457', manualUrl: 'https://example.com/manual.pdf',
+        labelSize: '70x80', customWidth: 70, customHeight: 80, orientation: 0, icons: ['ce', 'age'], warningId: 'choking',
       }),
     };
     for (const [role, company] of Object.entries({ euRep, manufacturer })) {
@@ -49,11 +49,18 @@ try {
   });
   await popup.goto(`chrome-extension://${extensionId}/popup.html`);
   await popup.getByRole('button', { name: '一键下载热敏打印 PDF' }).waitFor();
+  const barcodeInput = popup.getByLabel('EAN / UPC 商品码');
+  await barcodeInput.fill('753758108612');
+  await popup.getByLabel('Code 128 条码预览').locator('g rect').first().waitFor();
+  await popup.waitForFunction(async () => (await chrome.storage.local.get('emag:v1:gpsrLabel.draft'))['emag:v1:gpsrLabel.draft']?.value.ean13 === '753758108612');
+  await popup.reload();
+  await popup.getByLabel('Code 128 条码预览').locator('g rect').first().waitFor();
+  assert.equal(await barcodeInput.inputValue(), '753758108612', '重载后应保留完整商品码');
   const popupDimensions = await popup.evaluate(() => ({ viewport: window.innerHeight, body: document.body.getBoundingClientRect().height }));
   assert.equal(popupDimensions.body, popupDimensions.viewport, '右上角插件入口应与展开侧栏同高');
   await popup.waitForFunction(() => !document.querySelector('.gpsr-export-bar button').disabled).catch(async (error) => {
     console.error('标签状态诊断：', await popup.locator('.preview-errors').allTextContents(),
-      await popup.getByLabel('罗马尼亚语 · RO').inputValue(), await popup.getByLabel('型号 · Model No.').inputValue());
+      await popup.getByLabel('罗马尼亚语 · RO').inputValue(), await popup.getByLabel('产品编号').inputValue());
     throw error;
   });
   const companySections = popup.locator('#gpsr-eu-rep, #gpsr-manufacturer');

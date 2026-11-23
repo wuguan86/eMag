@@ -1,8 +1,8 @@
 import { jsPDF } from 'jspdf';
-import JsBarcode from 'jsbarcode';
 import QRCode from 'qrcode';
-import type { GpsrLabelData, GpsrMaterialId } from '../../types';
-import { hasCjkCharacters, isValidEan13, isValidManualUrl, materialOptions, resolveGpsrPageSize, warningOptions } from '../gpsrLabel';
+import type { GpsrLabelData } from '../../types';
+import { gpsrBarcodeValidationMessage, isValidGpsrBarcode, renderGpsrBarcode } from '../gpsrBarcode';
+import { hasCjkCharacters, isValidManualUrl, materialOptions, resolveGpsrPageSize, warningOptions } from '../gpsrLabel';
 import { installFonts } from './fonts';
 import { drawIcon, gpsrIconDimensions, iconSvg, type LabelIcon } from './icons';
 import { drawTextLine, escapeXml, wrapText, type FontAssets, type TextLine } from './text';
@@ -15,28 +15,26 @@ export interface GpsrLabelLayout {
   errors: string[];
   lines: TextLine[];
   icons: LabelIcon[];
-  boxes: { x: number; y: number; width: number; height: number }[];
+  frame: { x: number; y: number; width: number; height: number };
+  rules: { x1: number; y1: number; x2: number; y2: number }[];
+  euRepLogo: { x: number; y: number; width: number; height: number; dividerX: number };
+  bottomColumns: { leftX: number; leftWidth: number; dividerX: number; rightX: number; rightWidth: number; top: number; bottom: number };
   barcode: { svg: string; x: number; y: number; width: number; height: number; value: string } | null;
-  qrCode: { dataUrl: string; x: number; y: number; size: number; label: string } | null;
+  qrCode: { dataUrl: string; x: number; y: number; size: number } | null;
   assets: FontAssets;
 }
 
-const barcodeOptions = { format: 'EAN13', width: 0.72, height: 12, displayValue: false, margin: 2, background: '#ffffff', lineColor: '#000000' } as const;
 const MM_PER_PT = 25.4 / 72;
-const COMPACT_LINE_HEIGHT = 1.16;
+const COMPACT_LINE_HEIGHT = 1.15;
 
 function lineHeight(fontSize: number) {
   return fontSize * MM_PER_PT * COMPACT_LINE_HEIGHT;
 }
 
-function addText(doc: jsPDF, lines: TextLine[], value: string, region: string, x: number, top: number, width: number, size: number, lineHeight = size * 0.36, bold = false) {
-  const wrapped = wrapText(doc, value, width, size, { latin: { base64: '', ranges: [[0, 65535]] }, cjk: { base64: '', ranges: [] } });
-  wrapped.forEach((runs, index) => lines.push({ runs, text: runs.map((run) => run.text).join(''), x, y: top + size * 25.4 / 72 + index * lineHeight, fontSize: size, region, bold }));
-  return top + wrapped.length * lineHeight;
-}
-
-function getMaterialLabel(id: GpsrMaterialId | '') {
-  return materialOptions.find((item) => item.id === id)?.en ?? '';
+function addLabelText(doc: jsPDF, lines: TextLine[], value: string, region: string, x: number, top: number, width: number, size: number, assets: FontAssets, bold = false) {
+  const wrapped = wrapText(doc, value, width, size, assets);
+  wrapped.forEach((runs, index) => lines.push({ runs, text: runs.map((run) => run.text).join(''), x, y: top + size * MM_PER_PT + index * lineHeight(size), fontSize: size, region, bold }));
+  return top + wrapped.length * lineHeight(size);
 }
 
 function validateData(data: GpsrLabelData, errors: string[]) {
@@ -46,33 +44,46 @@ function validateData(data: GpsrLabelData, errors: string[]) {
   }
   if (!draft.model.trim()) errors.push('请填写型号。');
   if (!draft.batch.trim()) errors.push('请填写批次号。');
+  if (!draft.material) errors.push('请选择产品材质。');
   for (const [label, company] of [['欧盟责任人', euRep], ['制造商', manufacturer]] as const) {
     for (const key of ['name', 'address', 'email'] as const) {
       if (!company[key].trim()) errors.push(`请填写${label}${key === 'name' ? '公司名称' : key === 'address' ? '地址' : '邮箱'}。`);
       if (hasCjkCharacters(company[key])) errors.push(`${label}信息必须使用英文或拼音。`);
     }
   }
-  if (draft.ean13 && !isValidEan13(draft.ean13)) errors.push('EAN-13 必须是校验位正确的 13 位数字。');
+  if (draft.ean13 && !isValidGpsrBarcode(draft.ean13)) errors.push(gpsrBarcodeValidationMessage);
   if (!isValidManualUrl(draft.manualUrl)) errors.push('说明书地址必须是有效的 HTTP(S) URL。');
-  if (draft.warningId === 'none' && !warningOptions.none) errors.push('安全警示语选项无效。');
+  if (!Object.hasOwn(warningOptions, draft.warningId)) errors.push('安全警示语选项无效。');
 }
 
-function createBarcodeSvg(value: string, width: number, height: number) {
+function addCenteredText(doc: jsPDF, lines: TextLine[], value: string, region: string, centerX: number, y: number, size: number, assets: FontAssets, bold = false) {
+  const wrapped = wrapText(doc, value, 100, size, assets);
+  for (const runs of wrapped) {
+    const lineWidth = runs.reduce((sum, run) => sum + run.width, 0);
+    lines.push({ runs, text: runs.map((run) => run.text).join(''), x: centerX - lineWidth / 2, y, fontSize: size, region, bold });
+    y += lineHeight(size);
+  }
+  return y;
+}
+
+function createBarcodeSvg(value: string) {
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  JsBarcode(svg, value, barcodeOptions);
-  svg.dataset.targetWidth = String(width);
-  svg.dataset.targetHeight = String(height);
+  renderGpsrBarcode(svg, value, 32);
   return svg.outerHTML;
 }
 
 function drawBarcode(doc: jsPDF, svgText: string, x: number, y: number, width: number, height: number) {
+  doc.setFillColor(0, 0, 0);
+  doc.setDrawColor(0, 0, 0);
   const parser = new DOMParser();
   const svg = parser.parseFromString(svgText, 'image/svg+xml').documentElement;
   const viewBox = svg.getAttribute('viewBox')?.split(/[ ,]+/).map(Number);
   const sourceWidth = viewBox?.[2] || Number(svg.getAttribute('width'));
   const sourceHeight = viewBox?.[3] || Number(svg.getAttribute('height'));
-  if (!sourceWidth || !sourceHeight) throw new Error('EAN 条码无法生成。');
+  if (!sourceWidth || !sourceHeight) throw new Error('商品条码无法生成。');
   const scale = Math.min(width / sourceWidth, height / sourceHeight);
+  const left = x + (width - sourceWidth * scale) / 2;
+  const top = y + (height - sourceHeight * scale) / 2;
   for (const group of [...svg.querySelectorAll('g')]) {
     const translation = /translate\(\s*([\d.-]+)(?:[ ,]+([\d.-]+))?\s*\)/.exec(group.getAttribute('transform') ?? '');
     const offsetX = Number(translation?.[1] ?? 0);
@@ -84,7 +95,7 @@ function drawBarcode(doc: jsPDF, svgText: string, x: number, y: number, width: n
       const rectY = Number(rect.getAttribute('y') ?? 0) + offsetY;
       const rectWidth = Number(rect.getAttribute('width') ?? 0);
       const rectHeight = Number(rect.getAttribute('height') ?? 0);
-      doc.rect(x + rectX * scale, y + rectY * scale, rectWidth * scale, rectHeight * scale, 'F');
+      doc.rect(left + rectX * scale, top + rectY * scale, rectWidth * scale, rectHeight * scale, 'F');
     }
   }
 }
@@ -97,110 +108,116 @@ export async function createGpsrLabelLayout(data: GpsrLabelData): Promise<GpsrLa
   validateData(data, errors);
   const lines: TextLine[] = [];
   const contentWidth = width - margin * 2;
-  const titleTop = margin;
-  let titleBottom = titleTop;
-  const localizedNames = [
-    ['RO', data.draft.productName.ro], ['BG', data.draft.productName.bg], ['HU', data.draft.productName.hu],
-  ] as const;
-  for (const [language, name] of localizedNames) {
-    titleBottom = addText(doc, lines, `${language}: ${name}`, '产品名称', margin, titleBottom, contentWidth, 7, lineHeight(7), true);
+  const frame = { x: margin, y: margin, width: contentWidth, height: height - margin * 2 };
+  const rules: GpsrLabelLayout['rules'] = [];
+  const sectionX = frame.x + 1.5;
+  const sectionWidth = frame.width - 3;
+  const addRule = (ruleY: number) => rules.push({ x1: frame.x, y1: ruleY, x2: frame.x + frame.width, y2: ruleY });
+  const productName = [data.draft.productName.ro, data.draft.productName.bg, data.draft.productName.hu].join('/');
+  const material = materialOptions.find((option) => option.id === data.draft.material);
+  let y = frame.y + 1.1;
+  y = addLabelText(doc, lines, `Product Name: ${productName}`, '产品基本信息', sectionX, y, sectionWidth, 5.8, assets) + 0.04;
+  y = addLabelText(doc, lines, `Product Material: ${[material?.en, material?.bg, material?.hu].filter(Boolean).join('/')}`, '产品基本信息', sectionX, y, sectionWidth, 5.6, assets) + 0.04;
+  y = addLabelText(doc, lines, `Batch Number: ${data.draft.batch}`, '产品基本信息', sectionX, y, sectionWidth, 5.6, assets) + 0.3;
+  const productEnd = y;
+
+  y = addLabelText(doc, lines, `Manufacturer: ${data.manufacturer.name}`, '制造商', sectionX, y, sectionWidth, 5.4, assets) + 0.03;
+  y = addLabelText(doc, lines, `Adresa: ${data.manufacturer.address}`, '制造商', sectionX, y, sectionWidth, 5.4, assets) + 0.03;
+  y = addLabelText(doc, lines, `E-mail: ${data.manufacturer.email}`, '制造商', sectionX, y, sectionWidth, 5.4, assets) + 0.3;
+  const manufacturerEnd = y;
+
+  const euRepLogo = { x: sectionX, y: y + 0.25, width: 25, height: 12, dividerX: sectionX + 10 };
+  const repTextX = euRepLogo.x + euRepLogo.width + 1;
+  const repTextWidth = sectionX + sectionWidth - repTextX;
+  let repY = addLabelText(doc, lines, `Name: ${data.euRep.name}`, 'EU REP', repTextX, y, repTextWidth, 5.3, assets) + 0.02;
+  repY = addLabelText(doc, lines, `Adress: ${data.euRep.address}`, 'EU REP', repTextX, repY, repTextWidth, 5.3, assets) + 0.02;
+  repY = addLabelText(doc, lines, `E-mail: ${data.euRep.email}`, 'EU REP', repTextX, repY, repTextWidth, 5.3, assets) + 0.2;
+  const repEnd = Math.max(repY, euRepLogo.y + euRepLogo.height + 0.2);
+
+  const warning = warningOptions.choking;
+  y = addLabelText(doc, lines, 'WARNING:', '安全警示语', sectionX, repEnd, sectionWidth, 5.6, assets, true) + 0.05;
+  for (const text of [warning.ro, warning.bg, warning.hu]) {
+    if (text) y = addLabelText(doc, lines, text, '安全警示语', sectionX, y, sectionWidth, 5, assets, true) + 0.02;
   }
+  const warningEnd = y + 0.35;
 
-  const material = getMaterialLabel(data.draft.material);
-  const metadataTop = titleBottom + 0.2;
-  const metadata = [`Model: ${data.draft.model}`, material ? `Material: ${material}` : '', `Batch: ${data.draft.batch}`].filter(Boolean).join('  |  ');
-  const metadataBottom = addText(doc, lines, metadata, '产品追溯信息', margin, metadataTop, contentWidth, 5.5, lineHeight(5.5));
-
-  const boxTop = metadataBottom + 1;
-  const gap = 2;
-  const boxWidth = (contentWidth - gap) / 2;
-  const hasBarcode = Boolean(data.draft.ean13 && isValidEan13(data.draft.ean13));
-  const hasQrCode = Boolean(data.draft.manualUrl && isValidManualUrl(data.draft.manualUrl));
-  const traceabilityHeight = hasQrCode ? 15 : hasBarcode ? 14 : 0;
-  const bottomTop = height - margin - traceabilityHeight;
-  const warning = warningOptions[data.draft.warningId];
-  const warningTexts = [['RO', warning.ro], ['BG', warning.bg], ['HU', warning.hu]] as const;
-  const warningRows = warningTexts.reduce((total, [, text]) => total + (text ? wrapText(doc, text, contentWidth, 6, { latin: { base64: '', ranges: [[0, 65535]] }, cjk: { base64: '', ranges: [] } }).length : 0), 0);
-  const plannedWarningHeight = warningRows * lineHeight(6) + (warningRows ? 0.3 : 0);
-  const iconSizes = [...new Set(data.draft.icons)].filter((id) => id === 'ce' || id === 'age')
-    .map((id) => ({ id, ...gpsrIconDimensions(id) }));
-  const plannedIconHeight = Math.max(0, ...iconSizes.map((icon) => icon.height));
-  const availableBoxHeight = bottomTop - boxTop - plannedWarningHeight - plannedIconHeight - 2.5;
-  const boxBottom = boxTop + Math.min(20, Math.max(0, availableBoxHeight));
-  const boxHeight = boxBottom - boxTop;
-  const actors = [
-    { label: 'EU REP', name: data.euRep.name, address: data.euRep.address, email: data.euRep.email, x: margin },
-    { label: 'Manufacturer', name: data.manufacturer.name, address: data.manufacturer.address, email: data.manufacturer.email, x: margin + boxWidth + gap },
-  ];
-  const boxes = actors.map((actor) => ({ x: actor.x, y: boxTop, width: boxWidth, height: boxHeight }));
-  for (const actor of actors) {
-    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.25); doc.rect(actor.x, boxTop, boxWidth, boxHeight);
-    let y = addText(doc, lines, actor.label, actor.label, actor.x + 1, boxTop + 1, boxWidth - 2, 7, lineHeight(7), true) + 0.2;
-    for (const [field, value] of [['Name', actor.name], ['Address', actor.address], ['Email', actor.email]] as const) {
-      if (!value.trim()) continue;
-      y = addText(doc, lines, `${field}: ${value}`, actor.label, actor.x + 1, y, boxWidth - 2, 6, lineHeight(6)) + 0.2;
-    }
-    if (y > boxBottom - 0.2) errors.push(`${actor.label === 'EU REP' ? '欧盟责任人' : '制造商'}区域超出标签可打印高度，请缩短地址或选择更大尺寸。`);
-  }
-
-  const iconY = boxBottom + 1;
+  const bottomColumns = {
+    leftX: sectionX,
+    leftWidth: sectionWidth * 0.55,
+    dividerX: sectionX + sectionWidth * 0.55,
+    rightX: sectionX + sectionWidth * 0.55,
+    rightWidth: sectionWidth * 0.45,
+    top: frame.y + frame.height - 23,
+    bottom: frame.y + frame.height,
+  };
+  const iconY = bottomColumns.top + 1;
+  const iconSizes = (['ce', 'age'] as const).map((id) => ({ id, ...gpsrIconDimensions(id) }));
+  const iconsWidth = iconSizes.reduce((sum, icon) => sum + icon.width, 0) + 3;
+  let iconX = bottomColumns.leftX + (bottomColumns.leftWidth - iconsWidth) / 2;
   const selectedIcons: LabelIcon[] = [];
-  const iconWidth = iconSizes.reduce((sum, item) => sum + item.width, 0) + Math.max(0, iconSizes.length - 1) * 2;
-  let iconX = margin + Math.max(0, (contentWidth - iconWidth) / 2);
   for (const icon of iconSizes) {
-    if (iconX + icon.width > width - margin) errors.push('合规标志区域超出标签宽度，请减少标志或使用更大尺寸。');
     selectedIcons.push({ id: icon.id, x: iconX, y: iconY, width: icon.width, height: icon.height });
-    iconX += icon.width + 2;
+    iconX += icon.width + 3;
   }
 
-  const iconBottom = iconY + Math.max(0, ...selectedIcons.map((icon) => icon.height));
-  const warningTop = iconBottom + (selectedIcons.length ? 1 : 0.5);
-  let warningBottom = warningTop;
-  for (const [language, text] of warningTexts) {
-    if (text) warningBottom = addText(doc, lines, `${language}: ${text}`, '安全警示语', margin, warningBottom, contentWidth, 6, lineHeight(6));
-  }
-
-  if (warningBottom > bottomTop - 0.2) errors.push('安全警示语区域超出标签可打印高度，请缩短警示语或选择更大尺寸。');
-  const barcodeWidth = contentWidth - (hasQrCode ? 18 : 0);
-  const barcodeHeight = 12;
+  const hasBarcode = isValidGpsrBarcode(data.draft.ean13);
+  const hasQrCode = Boolean(data.draft.manualUrl && isValidManualUrl(data.draft.manualUrl));
   const barcode = hasBarcode ? {
-    svg: createBarcodeSvg(data.draft.ean13, barcodeWidth, barcodeHeight), x: margin, y: bottomTop + (hasQrCode ? 1 : 0),
-    width: barcodeWidth, height: barcodeHeight, value: data.draft.ean13,
+    svg: createBarcodeSvg(data.draft.ean13),
+    x: bottomColumns.leftX + 1, y: bottomColumns.top + 10, width: bottomColumns.leftWidth - 2, height: 9, value: data.draft.ean13,
   } : null;
+  if (barcode) addCenteredText(doc, lines, barcode.value, '商品条码', bottomColumns.leftX + bottomColumns.leftWidth / 2, bottomColumns.top + 20.1, 5.2, assets);
   const qrCode = hasQrCode ? {
-    dataUrl: await QRCode.toDataURL(data.draft.manualUrl, { errorCorrectionLevel: 'H', margin: 1, width: 256 }),
-    x: hasBarcode ? width - margin - 12 : (width - 12) / 2, y: bottomTop + 2, size: 12, label: 'User Manual / Info',
+    dataUrl: await QRCode.toDataURL(data.draft.manualUrl, { errorCorrectionLevel: 'H', margin: 1, width: 384 }),
+    x: bottomColumns.rightX + (bottomColumns.rightWidth - 18) / 2, y: bottomColumns.top + 0.6, size: 18,
   } : null;
-  if (barcode) {
-    lines.push({ runs: [{ text: barcode.value, font: 'NotoSans', width: 0 }], text: barcode.value, x: margin, y: height - margin - 1.2, fontSize: 4.8, region: 'EAN-13' });
-  }
-  if (qrCode) addText(doc, lines, qrCode.label, '说明书二维码', qrCode.x - (hasBarcode ? 3 : 6), bottomTop + 0.1, hasBarcode ? 18 : 24, 4.3, lineHeight(4.3));
+  if (qrCode) addCenteredText(doc, lines, 'manual/Ръководство/kézi', '说明书二维码', bottomColumns.rightX + bottomColumns.rightWidth / 2, bottomColumns.bottom - 1.5, 4.5, assets);
+  addCenteredText(doc, lines, 'EU', 'EU REP 标志', euRepLogo.x + euRepLogo.width * 0.2, euRepLogo.y + 8.5, 9, assets, true);
+  addCenteredText(doc, lines, 'REP', 'EU REP 标志', euRepLogo.x + euRepLogo.width * 0.7, euRepLogo.y + 8.5, 9, assets, true);
 
+  addRule(productEnd - 0.25);
+  addRule(manufacturerEnd - 0.25);
+  addRule(repEnd - 0.25);
+  addRule(warningEnd);
+  if (warningEnd > bottomColumns.top) errors.push('安全警示语区域超出标签高度，请缩短产品或企业信息，或选择更大尺寸。');
+  if (selectedIcons.some((icon) => icon.y + icon.height > bottomColumns.top + 10)) errors.push('标志区域超出标签高度。');
+  const regionEnds: Record<string, number> = {
+    产品基本信息: rules[0].y1,
+    制造商: rules[1].y1,
+    'EU REP': rules[2].y1,
+    安全警示语: rules[3].y1,
+  };
   for (const line of lines) {
-    doc.setFont(line.runs[0]?.font ?? 'NotoSans'); doc.setFontSize(line.fontSize);
     const lineWidth = line.runs.reduce((sum, run) => sum + run.width, 0);
-    if (line.x < margin - 0.001 || line.x + lineWidth > width - margin + 0.001 || line.y > height - margin + 0.001) {
+    if (line.x < margin - 0.001 || line.x + lineWidth > width - margin + 0.001 || line.y > height - margin - 0.5) {
       if (!errors.some((error) => error.startsWith(`${line.region}区域超出`))) errors.push(`${line.region}区域超出标签可打印边界，请调整内容或选择更大尺寸。`);
     }
+    const regionEnd = regionEnds[line.region];
+    if (regionEnd !== undefined && line.y + line.fontSize * MM_PER_PT * 0.08 > regionEnd) {
+      if (!errors.some((error) => error.startsWith(`${line.region}区域超出`))) errors.push(`${line.region}区域超出标签可打印高度，请缩短内容或选择更大尺寸。`);
+    }
   }
-  return { width, height, margin, valid: errors.length === 0, errors, lines, icons: selectedIcons, boxes, barcode, qrCode, assets };
+  return {
+    width, height, margin, valid: errors.length === 0, errors, lines, icons: selectedIcons,
+    frame, rules, euRepLogo, bottomColumns, barcode, qrCode, assets,
+  };
 }
 
 export function gpsrLabelLayoutToSvg(layout: GpsrLabelLayout) {
   const lines = layout.lines.map((line) => {
     const spans = line.runs.map((run) => `<tspan font-family="${run.font === 'NotoSans' ? 'EmagToolkitNotoSans' : 'EmagToolkitDroidFallback'}">${escapeXml(run.text)}</tspan>`).join('');
-    const companyIndex = line.region === 'EU REP' ? 0 : line.region === 'Manufacturer' ? 1 : -1;
-    const clip = companyIndex >= 0 ? ` clip-path="url(#company-${companyIndex})"` : '';
-    return `<text${clip} x="${line.x}" y="${line.y}" font-size="${line.fontSize * MM_PER_PT}" font-weight="${line.bold ? 700 : 400}" fill="#000">${spans}</text>`;
+    return `<text x="${line.x}" y="${line.y}" font-size="${line.fontSize * MM_PER_PT}" font-weight="${line.bold ? 700 : 400}" fill="#000">${spans}</text>`;
   }).join('');
   const barcodeViewBox = layout.barcode?.svg.match(/viewBox="([\d. ]+)"/)?.[1] ?? '';
   const barcode = layout.barcode
     ? `<svg x="${layout.barcode.x}" y="${layout.barcode.y}" width="${layout.barcode.width}" height="${layout.barcode.height}" viewBox="${barcodeViewBox}">${layout.barcode.svg.match(/<svg[^>]*>([\s\S]*)<\/svg>/)?.[1] ?? ''}</svg>` : '';
   const qr = layout.qrCode ? `<image x="${layout.qrCode.x}" y="${layout.qrCode.y}" width="${layout.qrCode.size}" height="${layout.qrCode.size}" href="${layout.qrCode.dataUrl}" xlink:href="${layout.qrCode.dataUrl}"/>` : '';
-  const boxes = layout.boxes.map((box) => `<rect x="${box.x}" y="${box.y}" width="${box.width}" height="${box.height}" fill="none" stroke="#111" stroke-width="0.25"/>`).join('');
-  const companyClips = layout.boxes.map((box, index) => `<clipPath id="company-${index}"><rect x="${box.x + 0.5}" y="${box.y + 0.5}" width="${Math.max(0, box.width - 1)}" height="${Math.max(0, box.height - 1)}"/></clipPath>`).join('');
+  const frame = `<rect x="${layout.frame.x}" y="${layout.frame.y}" width="${layout.frame.width}" height="${layout.frame.height}" fill="none" stroke="#111" stroke-width="0.3"/>`;
+  const rules = layout.rules.map((rule) => `<line x1="${rule.x1}" y1="${rule.y1}" x2="${rule.x2}" y2="${rule.y2}" stroke="#111" stroke-width="0.3"/>`).join('');
+  const logo = `<rect x="${layout.euRepLogo.x}" y="${layout.euRepLogo.y}" width="${layout.euRepLogo.width}" height="${layout.euRepLogo.height}" fill="none" stroke="#000" stroke-width="0.6"/><line x1="${layout.euRepLogo.dividerX}" y1="${layout.euRepLogo.y}" x2="${layout.euRepLogo.dividerX}" y2="${layout.euRepLogo.y + layout.euRepLogo.height}" stroke="#000" stroke-width="0.6"/>`;
+  const bottomDivider = `<line x1="${layout.bottomColumns.dividerX}" y1="${layout.bottomColumns.top}" x2="${layout.bottomColumns.dividerX}" y2="${layout.bottomColumns.bottom}" stroke="#000" stroke-width="0.3"/>`;
   const label = layout.valid ? 'GPSR 标签预览' : 'GPSR 标签预览，存在排版错误';
-  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${layout.width}mm" height="${layout.height}mm" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="${label}"><defs>${companyClips}</defs><rect width="100%" height="100%" fill="#fff"/>${boxes}${lines}${layout.icons.map(iconSvg).join('')}${barcode}${qr}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${layout.width}mm" height="${layout.height}mm" viewBox="0 0 ${layout.width} ${layout.height}" role="img" aria-label="${label}"><rect width="100%" height="100%" fill="#fff"/>${frame}${rules}${logo}${bottomDivider}${lines}${layout.icons.map(iconSvg).join('')}${barcode}${qr}</svg>`;
 }
 
 export async function createGpsrLabelPdf(data: GpsrLabelData) {
@@ -208,9 +225,12 @@ export async function createGpsrLabelPdf(data: GpsrLabelData) {
   if (!layout.valid) throw new Error(layout.errors.join('\n'));
   const doc = new jsPDF({ unit: 'mm', format: [layout.width, layout.height], orientation: layout.width > layout.height ? 'landscape' : 'portrait', compress: true, putOnlyUsedFonts: true });
   await installFonts(doc);
-  for (const box of layout.boxes) {
-    doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.25); doc.rect(box.x, box.y, box.width, box.height);
-  }
+  doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.3); doc.rect(layout.frame.x, layout.frame.y, layout.frame.width, layout.frame.height);
+  doc.setLineWidth(0.3);
+  for (const rule of layout.rules) doc.line(rule.x1, rule.y1, rule.x2, rule.y2);
+  doc.setLineWidth(0.6); doc.rect(layout.euRepLogo.x, layout.euRepLogo.y, layout.euRepLogo.width, layout.euRepLogo.height);
+  doc.line(layout.euRepLogo.dividerX, layout.euRepLogo.y, layout.euRepLogo.dividerX, layout.euRepLogo.y + layout.euRepLogo.height);
+  doc.setLineWidth(0.3); doc.line(layout.bottomColumns.dividerX, layout.bottomColumns.top, layout.bottomColumns.dividerX, layout.bottomColumns.bottom);
   for (const line of layout.lines) drawTextLine(doc, line);
   for (const icon of layout.icons) drawIcon(doc, icon);
   if (layout.barcode) drawBarcode(doc, layout.barcode.svg, layout.barcode.x, layout.barcode.y, layout.barcode.width, layout.barcode.height);

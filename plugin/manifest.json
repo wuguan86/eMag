@@ -55,12 +55,6 @@
       "run_at": "document_idle"
     }
   ],
-  "web_accessible_resources": [
-    {
-      "resources": ["wechat-qr.png"],
-      "matches": ["https://www.emag.ro/*"]
-    }
-  ],
   "content_security_policy": {
     "extension_pages": "script-src 'self'; object-src 'self'"
   }

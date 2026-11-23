@@ -67,10 +67,10 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
     label.setDraft({
       ...label.draft,
       productNameSource: { text: '', language: 'zh-CN' },
-      productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', batch: defaults.batch,
+      productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', productSize: '', batch: defaults.batch,
       ean13: '', manualUrl: '',
     });
-    setMessage('产品信息已清空，尺寸、企业资料和适用标志已保留。');
+    setMessage('产品信息已清空，打印规格、企业资料和适用标志已保留。');
   };
 
   const exportPdf = async () => {
@@ -115,6 +115,6 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
       </button>
       {exportMessage && <p className="export-message" role="status">{exportMessage}</p>}
     </div>
-    {serviceOpen && <FeedbackDialog onClose={() => setServiceOpen(false)} title="欧盟责任人办理咨询" intro="扫码或添加微信，咨询适合你商品的 GPSR 欧盟责任人办理服务。"/>}
+    {serviceOpen && <FeedbackDialog onClose={() => setServiceOpen(false)} title="欧盟责任人办理咨询" intro="可通过联系邮箱咨询 GPSR 欧盟责任人办理服务。"/>}
   </div>;
 }

@@ -70,6 +70,7 @@ export interface GpsrLabelDraft {
   productNameRevision?: string;
   material: GpsrMaterialId | '';
   model: string;
+  productSize?: string;
   batch: string;
   ean13: string;
   manualUrl: string;
