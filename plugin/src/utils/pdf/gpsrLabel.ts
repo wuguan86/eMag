@@ -51,7 +51,6 @@ function validateData(data: GpsrLabelData, errors: string[]) {
       if (!company[key].trim()) errors.push(`请填写${label}${key === 'name' ? '公司名称' : key === 'address' ? '地址' : '邮箱'}。`);
       if (hasCjkCharacters(company[key])) errors.push(`${label}信息必须使用英文或拼音。`);
     }
-    if (company.phone.trim() && hasCjkCharacters(company.phone)) errors.push(`${label}联系电话必须使用英文或拼音。`);
   }
   if (draft.ean13 && !isValidEan13(draft.ean13)) errors.push('EAN-13 必须是校验位正确的 13 位数字。');
   if (!isValidManualUrl(draft.manualUrl)) errors.push('说明书地址必须是有效的 HTTP(S) URL。');
@@ -129,14 +128,14 @@ export async function createGpsrLabelLayout(data: GpsrLabelData): Promise<GpsrLa
   const boxBottom = boxTop + Math.min(20, Math.max(0, availableBoxHeight));
   const boxHeight = boxBottom - boxTop;
   const actors = [
-    { label: 'EU REP', name: data.euRep.name, address: data.euRep.address, email: data.euRep.email, phone: data.euRep.phone, x: margin },
-    { label: 'Manufacturer', name: data.manufacturer.name, address: data.manufacturer.address, email: data.manufacturer.email, phone: '', x: margin + boxWidth + gap },
+    { label: 'EU REP', name: data.euRep.name, address: data.euRep.address, email: data.euRep.email, x: margin },
+    { label: 'Manufacturer', name: data.manufacturer.name, address: data.manufacturer.address, email: data.manufacturer.email, x: margin + boxWidth + gap },
   ];
   const boxes = actors.map((actor) => ({ x: actor.x, y: boxTop, width: boxWidth, height: boxHeight }));
   for (const actor of actors) {
     doc.setDrawColor(20, 20, 20); doc.setLineWidth(0.25); doc.rect(actor.x, boxTop, boxWidth, boxHeight);
     let y = addText(doc, lines, actor.label, actor.label, actor.x + 1, boxTop + 1, boxWidth - 2, 7, lineHeight(7), true) + 0.2;
-    for (const [field, value] of [['Name', actor.name], ['Address', actor.address], ['Email', actor.email], ['Phone', actor.phone]] as const) {
+    for (const [field, value] of [['Name', actor.name], ['Address', actor.address], ['Email', actor.email]] as const) {
       if (!value.trim()) continue;
       y = addText(doc, lines, `${field}: ${value}`, actor.label, actor.x + 1, y, boxWidth - 2, 6, lineHeight(6)) + 0.2;
     }

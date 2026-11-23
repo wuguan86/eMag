@@ -66,12 +66,12 @@ describe('GPSR 标签 PDF', () => {
       .rejects.toThrow('HTTP(S)');
   });
 
-  it('EU REP 电话包含中文时阻止生成预览和 PDF', async () => {
-    const invalid = { ...data, euRep: { ...data.euRep, phone: '请拨打 123456' } };
-    const layout = await createGpsrLabelLayout(invalid);
-    expect(layout.valid).toBe(false);
-    expect(layout.errors.join(' ')).toContain('欧盟责任人联系电话必须使用英文或拼音');
-    await expect(createGpsrLabelPdf(invalid)).rejects.toThrow('欧盟责任人联系电话');
+  it('忽略旧资料中的欧代电话，不将电话加入 GPSR 标签', async () => {
+    const withLegacyPhone = { ...data, euRep: { ...data.euRep, phone: '请拨打 123456' } };
+    const layout = await createGpsrLabelLayout(withLegacyPhone);
+    expect(layout.valid).toBe(true);
+    expect(layout.lines.map((line) => line.text).join(' ')).not.toContain('123456');
+    await expect(createGpsrLabelPdf(withLegacyPhone)).resolves.toBeTruthy();
   });
 
   it('超长公司地址不会静默截断或越过标签边界', async () => {

@@ -7,10 +7,10 @@ import { hasCjkCharacters } from '../utils/gpsrLabel';
 export function CompanyFields({ company, onChange, manufacturer = false, gpsr = false, headingAction, sectionId }: {
   company: Company; onChange: (key: keyof Company, value: string) => void; manufacturer?: boolean; gpsr?: boolean; headingAction?: ReactNode; sectionId?: string;
 }) {
-  const containsCjk = ['name', 'address', 'email', ...(manufacturer ? [] : ['phone'])].some((key) => hasCjkCharacters(company[key as keyof Company]));
+  const containsCjk = ['name', 'address', 'email', ...(!gpsr && !manufacturer ? ['phone'] : [])].some((key) => hasCjkCharacters(company[key as keyof Company]));
   const [editing, setEditing] = useState(false);
   const detailsId = useId();
-  const summary = [company.name || '公司名待填', company.address || '地址待填', company.email || '邮箱待填', ...(!manufacturer && company.phone ? [company.phone] : [])].join(' · ');
+  const summary = [company.name || '公司名待填', company.address || '地址待填', company.email || '邮箱待填', ...(!gpsr && !manufacturer && company.phone ? [company.phone] : [])].join(' · ');
   const complete = Boolean(company.name.trim() && company.address.trim() && company.email.trim());
   const title = manufacturer ? '制造商 · Manufacturer' : '欧盟责任人 · EU REP';
   return <Section id={sectionId} title={title} action={headingAction}>
@@ -32,9 +32,9 @@ export function CompanyFields({ company, onChange, manufacturer = false, gpsr = 
       <TextField label={gpsr ? manufacturer ? 'Production Address' : 'EU Postal Address' : manufacturer ? '国内实体地址' : '欧盟实体地址'} multiline value={company.address} onChange={(value) => onChange('address', value)}/>
       <div className={manufacturer ? '' : 'form-grid'}>
         <TextField label={gpsr ? 'Email' : '联系邮箱'} type="email" value={company.email} onChange={(value) => onChange('email', value)}/>
-        {!manufacturer && <TextField label={gpsr ? 'Phone' : '联系电话'} optional type="tel" value={company.phone} onChange={(value) => onChange('phone', value)}/>}
+        {!manufacturer && !gpsr && <TextField label="联系电话" optional type="tel" value={company.phone} onChange={(value) => onChange('phone', value)}/>}
       </div>
-      {gpsr && containsCjk && <p className="field-error" role="alert">公司名称、地址、邮箱和电话必须使用英文或拼音。</p>}
+      {gpsr && containsCjk && <p className="field-error" role="alert">公司名称、地址和邮箱必须使用英文或拼音。</p>}
     </div>
   </Section>;
 }

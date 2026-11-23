@@ -31,6 +31,7 @@ describe('GPSR 标签表单', () => {
     expect(within(rep).queryByRole('textbox', { name: 'Company Name' })).toBeNull();
     fireEvent.click(within(rep).getByRole('button', { name: '填写资料' }));
     expect(within(rep).getByLabelText('Company Name')).toBeTruthy();
+    expect(within(rep).queryByLabelText(/^Phone/)).toBeNull();
     expect(within(rep).getByRole('button', { name: '收起编辑' }).getAttribute('aria-expanded')).toBe('true');
   });
 
