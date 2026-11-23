@@ -22,7 +22,8 @@ export async function readCurrentProductName(product: ProductSnapshot | null): P
   if (product?.title?.trim()) return importedName(product.title.trim(), product.url);
   if (!globalThis.chrome?.tabs || !globalThis.chrome.scripting) throw new Error('请在 eMAG 或 1688 商品页打开插件后导入。');
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  if (tab?.id === undefined || !tab.url) throw new Error('未找到当前商品标签页。');
+  if (tab?.id === undefined) throw new Error('未找到当前商品标签页。');
+  if (!tab.url) throw new Error('请先打开商品详情页。如果已在详情页，请点击浏览器工具栏的 eMAG 卖家工具箱图标后重试。');
 
   let page: URL;
   try { page = new URL(tab.url); }

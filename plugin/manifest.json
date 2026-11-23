@@ -12,6 +12,7 @@
   ],
   "host_permissions": [
     "https://air.1688.com/*",
+    "https://detail.1688.com/*",
     "https://api.mymemory.translated.net/*"
   ],
   "background": {

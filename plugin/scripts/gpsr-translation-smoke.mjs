@@ -3,7 +3,7 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 
 process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.resolve('tmp/browsers');
-const { chromium } = await import('@playwright/test');
+const { chromium, expect } = await import('@playwright/test');
 const output = path.resolve('test-results/gpsr-translation');
 await mkdir(output, { recursive: true });
 const extensionPath = path.resolve('dist');
@@ -69,8 +69,37 @@ try {
   await product.getByText('中文对照：尚未生成，请翻译或填写中文品名', { exact: true }).first().waitFor();
   assert.equal(await product.getByLabel('保加利亚语 · BG').inputValue(), '');
   assert.equal(await product.getByLabel('匈牙利语 · HU').inputValue(), '');
+
+  const searchUrl = 'https://s.1688.com/selloffer/offer_search.htm';
+  const offerUrl = 'https://detail.1688.com/offer/668369196781.html?skuId=4816466937620';
+  const offerTitle = '80-200斤吊带螺纹背心女大码修身外穿内搭打底衫无袖薄厂家直销';
+  await context.route(searchUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8',
+    body: `<!doctype html><a href="${offerUrl}" target="_blank">打开背心详情</a>` }));
+  await context.route(offerUrl, (route) => route.fulfill({ contentType: 'text/html; charset=utf-8',
+    body: `<!doctype html><title>${offerTitle} - 阿里巴巴</title><h1>广州鹏尚服装有限公司</h1>` }));
+  await popup.reload();
+  const importButton = popup.getByRole('button', { name: '从当前商品导入' });
+  await importButton.waitFor();
+  const search = await context.newPage();
+  await search.goto(searchUrl);
+  await search.bringToFront();
+  const importStatus = popup.locator('#gpsr-product [role="status"]');
+  await importButton.evaluate((button) => button.click());
+  await expect(importStatus).toContainText('请先打开商品详情页。');
+  const [offer] = await Promise.all([
+    search.waitForEvent('popup'),
+    search.getByRole('link', { name: '打开背心详情' }).click(),
+  ]);
+  await offer.waitForURL(offerUrl);
+  await offer.bringToFront();
+  // 保持新商品标签页处于活动状态，模拟侧栏按钮操作，无需在新标签页点击工具栏图标授权 activeTab。
+  await importButton.evaluate((button) => button.click());
+  await expect(importStatus).toHaveText('已导入商品标题并清除旧译文，请确认原文语言后翻译。');
+  assert.equal(await popup.getByLabel('商品原始品名', { exact: true }).inputValue(), offerTitle);
+  assert.equal(await popup.getByLabel('中文品名', { exact: true }).inputValue(), offerTitle);
+
   assert.deepEqual(failures, [], '浏览器不能出现运行错误');
-  console.log('GPSR 翻译验证通过：真实扩展导入、源语言参数、中文对照、三语回填、存储恢复和跨窗口清除旧译文；接口响应使用受控夹具。');
+  console.log('GPSR 浏览器验证通过：eMAG 导入与三语翻译、跨窗口清除旧译文、1688 搜索结果打开新标签页后导入。');
 } finally {
   await context.close();
 }
