@@ -6,6 +6,14 @@ beforeEach(() => { localStorage.clear(); vi.unstubAllGlobals(); });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('GPSR 标签表单', () => {
+  it('仅显示产品编号输入框，不显示批次输入框', () => {
+    render(<GPSRLabelTab product={null}/>);
+
+    expect(screen.getByLabelText('产品编号')).toBeTruthy();
+    expect(screen.queryByLabelText('型号 · Model No.')).toBeNull();
+    expect(screen.queryByLabelText('生产批次 · Batch No.')).toBeNull();
+  });
+
   it('分区导航在隔离容器内定位目标且不修改页面地址', () => {
     render(<GPSRLabelTab product={null}/>);
     const settings = screen.getByRole('heading', { name: '标签尺寸与安全信息' }).closest('section')!;
@@ -60,7 +68,7 @@ describe('GPSR 标签表单', () => {
     await waitFor(() => expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('蓝牙耳机'));
     fireEvent.click(screen.getByRole('button', { name: '清空重填' }));
     expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('');
-    expect((screen.getByLabelText('生产批次 · Batch No.') as HTMLInputElement).value).toMatch(/^LOT-\d{8}$/);
+    expect((screen.getByLabelText('产品编号') as HTMLInputElement).value).toBe('');
   });
 
   it('点击翻译后填充三语结果且保留逐项编辑', async () => {
@@ -90,8 +98,7 @@ describe('GPSR 标签表单', () => {
       '罗马尼亚语 · RO': 'Căști Bluetooth',
       '保加利亚语 · BG': 'Bluetooth слушалки',
       '匈牙利语 · HU': 'Bluetooth fülhallgató',
-      '型号 · Model No.': 'B003',
-      '生产批次 · Batch No.': 'LOT-20261117',
+      '产品编号': 'B003',
       'EU Postal Address': 'EU Street 1, Bucharest',
       'Production Address': 'Building 2, Shenzhen, China',
     };
