@@ -2,6 +2,7 @@ import JsBarcode from 'jsbarcode';
 import { describe, expect, it } from 'vitest';
 import type { GpsrLabelData } from '../src/types';
 import { createGpsrLabelLayout, createGpsrLabelPdf, gpsrLabelLayoutToSvg } from '../src/utils/pdf/gpsrLabel';
+import { createGpsrLabelPng } from '../src/utils/gpsrLabelImage';
 
 const data: GpsrLabelData = {
   draft: {
@@ -97,6 +98,8 @@ describe('GPSR 标签 PDF', () => {
 
   it('在商品码或说明书 URL 无效时拒绝导出', async () => {
     await expect(createGpsrLabelPdf({ ...data, draft: { ...data.draft, ean13: '59012341234A' } }))
+      .rejects.toThrow('12 或 13 位数字');
+    await expect(createGpsrLabelPng({ ...data, draft: { ...data.draft, ean13: '59012341234A' } }))
       .rejects.toThrow('12 或 13 位数字');
     await expect(createGpsrLabelPdf({ ...data, draft: { ...data.draft, manualUrl: 'javascript:alert(1)' } }))
       .rejects.toThrow('HTTP(S)');

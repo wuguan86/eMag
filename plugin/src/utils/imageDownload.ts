@@ -36,11 +36,11 @@ export async function fetchJpegImage(imageUrl: string, request: typeof fetch = f
   } finally { bitmap.close(); }
 }
 
-export function downloadBlob(blob: Blob, fileName: string): void {
+export function downloadBlob(blob: Blob, fileName: string, extension: 'jpg' | 'png' = 'jpg'): void {
   const objectUrl = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = objectUrl;
-  link.download = fileName.toLowerCase().endsWith('.jpg') ? fileName : `${fileName}.jpg`;
+  link.download = fileName.toLowerCase().endsWith(`.${extension}`) ? fileName : `${fileName}.${extension}`;
   link.hidden = true;
   document.body.append(link);
   try { link.click(); }

@@ -8,6 +8,7 @@ import { createDefaultGpsrLabelDraft } from '../utils/gpsrLabel';
 import { translateProductName } from '../utils/gpsrTranslation';
 import { readCurrentProductName } from '../utils/productImport';
 import { exportGpsrLabel } from '../utils/pdf/gpsrLabel';
+import { exportGpsrLabelImage } from '../utils/gpsrLabelImage';
 import { CompanyFields } from './CompanyFields';
 import { FeedbackDialog } from './FeedbackDialog';
 import { GpsrLabelPreview } from './GpsrLabelPreview';
@@ -73,17 +74,19 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
     setMessage('产品信息已清空，打印规格、企业资料和适用标志已保留。');
   };
 
-  const exportPdf = async () => {
+  const exportFile = async (format: 'pdf' | 'png') => {
     if (exporting || !previewValid) return;
     setExporting(true);
-    setExportMessage('正在准备本地 PDF…');
+    const formatName = format === 'pdf' ? 'PDF' : 'PNG 图片';
+    setExportMessage(`正在准备本地 ${formatName}…`);
     try {
       await flushStorage();
-      await exportGpsrLabel(data);
-      setExportMessage('PDF 已生成并发起下载。');
+      if (format === 'pdf') await exportGpsrLabel(data);
+      else await exportGpsrLabelImage(data);
+      setExportMessage(`${formatName} 已生成并发起下载。`);
     } catch (error) {
-      console.warn('GPSR 标签 PDF 导出失败，当前表单已保留。', error);
-      setExportMessage(error instanceof Error ? error.message : 'PDF 导出失败，请检查表单后重试。');
+      console.warn(`GPSR 标签 ${formatName} 导出失败，当前表单已保留。`, error);
+      setExportMessage(error instanceof Error ? error.message : `${formatName} 导出失败，请检查表单后重试。`);
     } finally { setExporting(false); }
   };
 
@@ -109,9 +112,12 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
     <GpsrLabelPreview sectionId="gpsr-preview" data={data} onValidity={onPreviewValidity}/>
     </div>
     <div className="gpsr-export-bar">
-      <button className="button primary full" type="button" disabled={exporting || !previewValid} onClick={() => { void exportPdf(); }}>
+      <button className="button primary full" type="button" disabled={exporting || !previewValid} onClick={() => { void exportFile('pdf'); }}>
         {exporting ? <LoaderCircle size={16} className="spin"/> : <Download size={16}/>}
         {exporting ? '正在生成…' : '一键下载热敏打印 PDF'}
+      </button>
+      <button className="button secondary full gpsr-image-download" type="button" disabled={exporting || !previewValid} onClick={() => { void exportFile('png'); }}>
+        <Download size={16}/>下载 PNG 图片
       </button>
       {exportMessage && <p className="export-message" role="status">{exportMessage}</p>}
     </div>

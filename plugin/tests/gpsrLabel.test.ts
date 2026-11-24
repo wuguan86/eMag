@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { isValidGpsrBarcode } from '../src/utils/gpsrBarcode';
-import { isValidManualUrl, resolveGpsrPageSize } from '../src/utils/gpsrLabel';
+import { gpsrLabelFileName, isValidManualUrl, resolveGpsrPageSize } from '../src/utils/gpsrLabel';
 
 describe('GPSR 标签数据校验', () => {
+  it.each([
+    ['753758108612', 'pdf', '753758108612.pdf'],
+    ['0590123412348', 'png', '0590123412348.png'],
+    ['', 'pdf', 'gpsr-product-label.pdf'],
+    ['', 'png', 'gpsr-product-label.png'],
+  ] as const)('商品码 %s 导出为 %s 时使用文件名 %s', (barcode, format, expected) => {
+    expect(gpsrLabelFileName(barcode, format)).toBe(expected);
+  });
   it('接受 12 或 13 位商品码并拒绝其余输入', () => {
     expect(isValidGpsrBarcode('753758108612')).toBe(true);
     expect(isValidGpsrBarcode('0590123412348')).toBe(true);

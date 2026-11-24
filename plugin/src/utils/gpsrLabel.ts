@@ -4,6 +4,11 @@ import { isProductNameLanguage } from './productNameSource';
 export const GPSR_LABEL_MARGIN_MM = 2;
 const MAX_PAGE_MM = 5000;
 
+export function gpsrLabelFileName(barcode: string, extension: 'pdf' | 'png') {
+  // 商品码使用字符串保留前导零，兼容未填写商品码的现有标签草稿。
+  return `${barcode.trim() || 'gpsr-product-label'}.${extension}`;
+}
+
 export const materialOptions: { id: GpsrMaterialId; label: string; en: string; ro: string; bg: string; hu: string }[] = [
   { id: 'plastic', label: '塑料', en: 'Plastic', ro: 'Plastic', bg: 'Пластмаса', hu: 'Műanyag' },
   { id: 'silicone', label: '硅胶', en: 'Silicone', ro: 'Silicon', bg: 'Силикон', hu: 'Szilikon' },

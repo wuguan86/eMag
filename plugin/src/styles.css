@@ -38,10 +38,6 @@
 .gpsr-translate { margin-bottom: 4px; }
 .gpsr-language-field small { display: block; margin: -8px 0 10px; color: #7d899c; font-size: 10px; overflow-wrap: anywhere; }
 .gpsr-two-column { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0 12px; }
-.gpsr-orientation { display: flex; gap: 5px; border: 0; padding: 0; margin: 2px 0 16px; }
-.gpsr-orientation legend { width: 100%; padding: 0 0 7px; color: #526079; font-size: 11px; }
-.gpsr-orientation button { flex: 1; min-height: 34px; border: 1px solid #dfe5ef; border-radius: 5px; color: #68758e; background: #fff; font-size: 11px; }
-.gpsr-orientation button[aria-pressed="true"] { border-color: #2563eb; color: #1d4ed8; background: #eff5ff; font-weight: 650; }
 .gpsr-icon-options { grid-template-columns: 1fr; margin-bottom: 18px; }
 .gpsr-icon-options label { align-items: flex-start; }
 .gpsr-icon-options small { display: block; margin-top: 2px; }

@@ -16,6 +16,12 @@ afterEach(async () => {
 });
 
 describe('模板、法规参考和反馈交互', () => {
+  it.each([true, false])('工具入口隐藏 DoC 草稿页签（独立侧栏：%s）', async (popup) => {
+    const { Toolkit } = await import('../src/components/Toolkit');
+    render(<Toolkit product={null} popup={popup}/>);
+    expect(screen.queryByRole('button', { name: 'DoC 草稿' })).toBeNull();
+    expect(screen.getByRole('button', { name: 'GPSR 标签' })).toBeTruthy();
+  });
   it('只有一个模板时可重复应用所选模板，恢复所有临时微调字段', async () => {
     const { Toolkit } = await import('../src/components/Toolkit');
     render(<Toolkit product={null} popup/>);
@@ -37,21 +43,23 @@ describe('模板、法规参考和反馈交互', () => {
   });
   it('GPSR 三语标签草稿与 DoC 产品资料相互独立，标签设置在返回后保留', async () => {
     const { Toolkit } = await import('../src/components/Toolkit');
-    render(<Toolkit product={null} popup/>);
+    const { ComplianceWorkspace } = await import('../src/components/ComplianceWorkspace');
+    const view = render(<Toolkit product={null} popup/>);
     fireEvent.change(screen.getByLabelText('商品原始品名'), { target: { value: '标签商品' } });
     fireEvent.change(screen.getByLabelText('产品编号'), { target: { value: 'LABEL-1' } });
     expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: 'DoC 草稿' }));
+    view.rerender(<ComplianceWorkspace/>);
     expect((screen.getByLabelText('产品名称') as HTMLInputElement).value).toBe('');
     fireEvent.change(screen.getByLabelText('产品名称'), { target: { value: 'DoC 商品' } });
-    fireEvent.click(screen.getByRole('button', { name: 'GPSR 标签' }));
+    view.rerender(<Toolkit product={null} popup/>);
     expect((screen.getByLabelText('商品原始品名') as HTMLInputElement).value).toBe('标签商品');
     expect((screen.getByLabelText('产品编号') as HTMLInputElement).value).toBe('LABEL-1');
     expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
   });
-  it('模板另存副本、切换、删除与默认指向相互独立，切 Tab 共享微调草稿', async () => {
+  it('模板另存副本、切换、删除与默认指向相互独立，跨表单共享微调草稿', async () => {
     const { Toolkit } = await import('../src/components/Toolkit');
-    render(<Toolkit product={null} popup/>);
+    const { ComplianceWorkspace } = await import('../src/components/ComplianceWorkspace');
+    const view = render(<Toolkit product={null} popup/>);
     const rep = screen.getByRole('heading', { name: '欧盟责任人 · EU REP' }).closest('section')!;
     await waitFor(() => expect((within(rep).getByLabelText('EU REP 模板') as HTMLSelectElement).disabled).toBe(false));
     fireEvent.change(within(rep).getByLabelText('Company Name'), { target: { value: '第一公司' } });
@@ -59,7 +67,7 @@ describe('模板、法规参考和反馈交互', () => {
     fireEvent.click(within(rep).getByRole('button', { name: '保存为新模板' }));
     expect(within(rep).getByRole('option', { name: '常用（默认）' })).toBeTruthy();
     fireEvent.change(within(rep).getByLabelText('Company Name'), { target: { value: '临时公司' } });
-    fireEvent.click(screen.getByRole('button', { name: 'DoC 草稿' }));
+    view.rerender(<ComplianceWorkspace/>);
     const docRep = screen.getByRole('heading', { name: '欧盟责任人 · EU REP' }).closest('section')!;
     expect((within(docRep).getByLabelText('公司名称') as HTMLInputElement).value).toBe('临时公司');
     fireEvent.change(within(docRep).getByLabelText('新模板名称'), { target: { value: '常用' } });
@@ -78,9 +86,8 @@ describe('模板、法规参考和反馈交互', () => {
   });
 
   it('用户主动选择参考时只替换法规和标准，签署字段保持可编辑草稿', async () => {
-    const { Toolkit } = await import('../src/components/Toolkit');
-    render(<Toolkit product={null} popup/>);
-    fireEvent.click(screen.getByRole('button', { name: 'DoC 草稿' }));
+    const { ComplianceWorkspace } = await import('../src/components/ComplianceWorkspace');
+    render(<ComplianceWorkspace/>);
     fireEvent.change(screen.getByLabelText('签署人姓名'), { target: { value: '自行填写' } });
     fireEvent.change(screen.getByLabelText('插入常见品类法规参考示例（需自行核对）'), { target: { value: 'wireless' } });
     expect((screen.getByLabelText('适用法规') as HTMLTextAreaElement).value).toBe('2014/53/EU (RED), 2011/65/EU (RoHS)');

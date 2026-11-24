@@ -2,7 +2,7 @@ import { jsPDF } from 'jspdf';
 import QRCode from 'qrcode';
 import type { GpsrLabelData } from '../../types';
 import { gpsrBarcodeValidationMessage, isValidGpsrBarcode, renderGpsrBarcode } from '../gpsrBarcode';
-import { hasCjkCharacters, isValidManualUrl, materialOptions, resolveGpsrPageSize, warningOptions } from '../gpsrLabel';
+import { gpsrLabelFileName, hasCjkCharacters, isValidManualUrl, materialOptions, resolveGpsrPageSize, warningOptions } from '../gpsrLabel';
 import { installFonts, previewFontFamilies } from './fonts';
 import { drawIcon, gpsrIconDimensions, iconSvg, type LabelIcon } from './icons';
 import { drawTextLine, escapeXml, wrapText, type FontAssets, type TextLine } from './text';
@@ -281,5 +281,5 @@ export async function createGpsrLabelPdf(data: GpsrLabelData) {
 
 export async function exportGpsrLabel(data: GpsrLabelData) {
   const doc = await createGpsrLabelPdf(data);
-  doc.save('gpsr-product-label.pdf');
+  doc.save(gpsrLabelFileName(data.draft.ean13, 'pdf'));
 }

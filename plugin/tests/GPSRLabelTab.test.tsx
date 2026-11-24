@@ -78,9 +78,12 @@ describe('GPSR 标签表单', () => {
   it('显示新默认尺寸与固定合规标志和三语警示', async () => {
     render(<GPSRLabelTab product={null}/>);
     expect((screen.getByLabelText('打印尺寸') as HTMLSelectElement).value).toBe('70x80');
-    expect(screen.getByRole('button', { name: '0° · 纵向' }).getAttribute('aria-pressed')).toBe('true');
+    expect(screen.queryByRole('group', { name: '出纸方向' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '0° · 纵向' })).toBeNull();
+    expect(screen.queryByRole('button', { name: '90° · 横向' })).toBeNull();
     expect(screen.getByText(/CE · 0–3 岁警示标志 · RO \/ BG \/ HU 塑料袋防窒息警示/)).toBeTruthy();
     expect((screen.getByRole('button', { name: /一键下载热敏打印 PDF/ }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole('button', { name: '下载 PNG 图片' }) as HTMLButtonElement).disabled).toBe(true);
     await screen.findByRole('alert');
   });
 
@@ -142,6 +145,7 @@ describe('GPSR 标签表单', () => {
     await waitFor(() => expect((download as HTMLButtonElement).disabled).toBe(false), {
       onTimeout: (error) => new Error(`${error.message}\n${[...container.querySelectorAll('[role="alert"]')].map((item) => item.textContent).join('\n')}`),
     });
+    expect((screen.getByRole('button', { name: '下载 PNG 图片' }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.getByLabelText('Code 128 条码预览').querySelector('g rect')).toBeTruthy();
     expect(container.querySelector('.gpsr-preview-paper image')?.getAttribute('xlink:href')).toMatch(/^data:image\/png;base64,/);
     await flushStorage();
