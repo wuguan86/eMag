@@ -36,6 +36,10 @@
 .gpsr-product-actions .gpsr-reset:hover { border-color: #c5d0e0; background: #f7f9fc; color: #46546b; }
 .gpsr-product-actions .text-button { font-size: 11px; }
 .gpsr-translate { margin-bottom: 4px; }
+.gpsr-name-actions { flex-wrap: wrap; gap: 8px; }
+.gpsr-name-service-settings { margin: 10px 0 14px; font-size: 12px; }
+.gpsr-name-service-settings summary { cursor: pointer; color: #164fb0; }
+.gpsr-name-service-form { margin-top: 10px; }
 .gpsr-language-field small { display: block; margin: -8px 0 10px; color: #7d899c; font-size: 10px; overflow-wrap: anywhere; }
 .gpsr-two-column { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 0 12px; }
 .gpsr-icon-options { grid-template-columns: 1fr; margin-bottom: 18px; }

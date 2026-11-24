@@ -1,77 +1,93 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { translateProductName } from '../src/utils/gpsrTranslation';
-import { handleGpsrTranslationRequest } from '../src/utils/gpsrTranslationProxy';
+import { normalizeGpsrApiOrigin } from '../src/config/gpsrApi';
+import { refineProductName, saveGpsrApiToken, translateProductName } from '../src/utils/gpsrTranslation';
+import { handleGpsrNameRequest } from '../src/utils/gpsrTranslationProxy';
+import { readLabelName } from '../src/utils/gpsrNameProtocol';
+
+const names = { zh: '女士滑雪服', ro: 'Salopetă de schi', bg: 'Дамски ски костюм', hu: 'Női síruha' };
+const token = 'sample-service-token';
+const origin = 'https://gpsr.example.com';
+const translation = { type: 'TRANSLATE_GPSR_NAME', name: names.ro, sourceLanguage: 'ro' };
+
+function service(request = vi.fn<typeof fetch>().mockResolvedValue(Response.json(names))) {
+  return { origin, request, readToken: vi.fn(async () => token), writeToken: vi.fn(async () => {}) };
+}
 
 afterEach(() => vi.unstubAllGlobals());
 
-describe('GPSR 品名翻译', () => {
-  it('只向免费翻译服务发送用户输入的中文品名并返回三种语言', async () => {
-    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
-      const url = new URL(String(input));
-      const target = url.searchParams.get('langpair')?.split('|')[1];
-      const translations: Record<string, string> = { ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' };
-      return Response.json({ responseStatus: 200, responseData: { translatedText: translations[target ?? ''] } });
-    });
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(translateProductName('蓝牙耳机')).resolves.toEqual({ zh: '蓝牙耳机', ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(fetchMock.mock.calls.every(([input]) => new URL(String(input)).searchParams.get('q') === '蓝牙耳机')).toBe(true);
+describe('GPSR 品名服务', () => {
+  it('通过扩展后台发起单次翻译并获得完整结果', async () => {
+    const options = service();
+    const sendMessage = vi.fn((message: unknown) => handleGpsrNameRequest(message, options));
+    vi.stubGlobal('chrome', { runtime: { sendMessage } });
+    await expect(translateProductName(` ${names.ro} `, 'ro')).resolves.toEqual(names);
+    expect(sendMessage).toHaveBeenCalledExactlyOnceWith(translation);
+    expect(options.request).toHaveBeenCalledTimes(1);
+    const [url, request] = options.request.mock.calls[0];
+    expect(String(url)).toBe(`${origin}/api/v1/gpsr/names/translate`);
+    expect(JSON.parse(String(request?.body))).toEqual({ name: names.ro, sourceLanguage: 'ro' });
+    expect(request?.headers).toMatchObject({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
+    expect(request?.redirect).toBe('error');
   });
 
-  it('罗马尼亚语原文复用 RO 并按真实源语言生成中文、BG 和 HU', async () => {
-    const pairs: string[] = [];
-    vi.stubGlobal('fetch', async (input: RequestInfo | URL) => {
-      const url = new URL(String(input));
-      const pair = url.searchParams.get('langpair') ?? '';
-      pairs.push(pair);
-      const translations: Record<string, string> = { 'ro|zh-CN': '女士滑雪服', 'ro|bg': 'Дамски ски костюм', 'ro|hu': 'Női síruha' };
-      return Response.json({ responseStatus: 200, responseData: { translatedText: translations[pair] } });
-    });
-    await expect(translateProductName('Salopeta de schi femei', 'ro')).resolves.toEqual({
-      zh: '女士滑雪服', ro: 'Salopeta de schi femei', bg: 'Дамски ски костюм', hu: 'Női síruha',
-    });
-    expect(pairs.sort()).toEqual(['ro|bg', 'ro|hu', 'ro|zh-CN']);
+  it('令牌按服务来源保存，提炼可传递未知语言和完整标题', async () => {
+    const options = service(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ name: '女士罗纹吊带背心' })));
+    vi.stubGlobal('chrome', { runtime: { sendMessage: (message: unknown) => handleGpsrNameRequest(message, options) } });
+    await saveGpsrApiToken(` ${token} `);
+    expect(options.writeToken).toHaveBeenCalledExactlyOnceWith(`emag:gpsr-api-token:${origin}`, token);
+    expect(options.request).not.toHaveBeenCalled();
+    const title = '女士吊带背心，厂家直销'.repeat(20);
+    await expect(refineProductName(title, '')).resolves.toBe('女士罗纹吊带背心');
+    const [url, request] = options.request.mock.calls[0];
+    expect(String(url)).toBe(`${origin}/api/v1/gpsr/names/refine`);
+    expect(JSON.parse(String(request?.body))).toEqual({ name: title, sourceLanguage: null });
   });
 
-  it('通过扩展后台传递明确源语言并返回中文译名', async () => {
-    vi.stubGlobal('chrome', { runtime: { sendMessage: async (message: unknown) =>
-      handleGpsrTranslationRequest(message, async (input) => {
-        const pair = new URL(String(input)).searchParams.get('langpair');
-        const translations: Record<string, string> = { 'en|zh-CN': '蓝牙耳机', 'en|ro': 'Căști', 'en|bg': 'Слушалки', 'en|hu': 'Fülhallgató' };
-        return Response.json({ responseStatus: 200, responseData: { translatedText: translations[pair ?? ''] } });
-      }) } });
-    await expect(translateProductName('Wireless Earbuds', 'en')).resolves.toEqual({ zh: '蓝牙耳机', ro: 'Căști', bg: 'Слушалки', hu: 'Fülhallgató' });
+  it('缺少语言或输入过长时避免发送请求', async () => {
+    const sendMessage = vi.fn();
+    vi.stubGlobal('chrome', { runtime: { sendMessage } });
+    await expect(translateProductName('Vest', '')).rejects.toThrow('原文语言');
+    await expect(translateProductName('Vest', 'zh-CN')).rejects.toThrow('原文语言');
+    await expect(translateProductName('衣'.repeat(161), 'zh-CN')).rejects.toThrow('短品名');
+    await expect(refineProductName('衣'.repeat(2001), 'zh-CN')).rejects.toThrow('2000');
+    expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('未选语言或中文源语言与纯外文不符时不发送翻译请求', async () => {
-    const request = vi.fn();
-    vi.stubGlobal('fetch', request);
-    await expect(translateProductName('Salopeta', '')).rejects.toThrow('原文语言');
-    await expect(translateProductName('Salopeta', 'zh-CN')).rejects.toThrow('原文语言');
-    expect(request).not.toHaveBeenCalled();
-  });
-
-  it('代理拒绝未知源语言与源目标相同的请求', async () => {
-    const request = vi.fn();
-    for (const source of ['auto', 'de', 'ro']) {
-      await expect(handleGpsrTranslationRequest({ type: 'TRANSLATE_GPSR_NAME', name: 'Salopeta', source, target: 'ro' }, request))
-        .resolves.toEqual({ ok: false, error: '翻译请求格式无效。' });
+  it('扩展后台拒绝无效请求、缺少服务地址和缺少令牌', async () => {
+    const options = service();
+    for (const request of [null, { ...translation, name: 'a'.repeat(161) }, { ...translation, sourceLanguage: 'de' }]) {
+      await expect(handleGpsrNameRequest(request, options)).resolves.toMatchObject({ ok: false, error: '品名请求格式无效。' });
     }
-    expect(request).not.toHaveBeenCalled();
+    await expect(handleGpsrNameRequest(translation, { ...options, origin: '' })).resolves.toMatchObject({ ok: false, error: expect.stringContaining('服务地址') });
+    await expect(handleGpsrNameRequest(translation, { ...options, readToken: async () => undefined })).resolves.toMatchObject({ ok: false, error: expect.stringContaining('访问令牌') });
+    expect(options.request).not.toHaveBeenCalled();
   });
 
-  it('翻译服务失败时保留明确错误以便界面提示重试', async () => {
-    vi.stubGlobal('fetch', vi.fn(async () => Response.json({ responseStatus: 403, responseDetails: 'quota exceeded' })));
-    await expect(translateProductName('蓝牙耳机')).rejects.toThrow('翻译服务暂不可用');
+  it.each([[401, '令牌'], [429, '频繁'], [502, '暂不可用'], [504, '超时']])('将服务状态 %i 转换为用户提示', async (status, hint) => {
+    const options = service(vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
+    await expect(handleGpsrNameRequest(translation, options)).resolves.toMatchObject({ ok: false, error: expect.stringContaining(hint) });
   });
 
-  it('翻译代理只接受支持的目标语言和受限长度的中文品名', async () => {
-    const request = vi.fn();
-    await expect(handleGpsrTranslationRequest({ type: 'TRANSLATE_GPSR_NAME', name: '蓝牙耳机', target: 'en' }, request))
-      .resolves.toEqual({ ok: false, error: '翻译请求格式无效。' });
-    await expect(handleGpsrTranslationRequest({ type: 'TRANSLATE_GPSR_NAME', name: '品名'.repeat(81), target: 'ro' }, request))
-      .resolves.toEqual({ ok: false, error: '翻译请求格式无效。' });
-    expect(request).not.toHaveBeenCalled();
+  it('拒绝不完整译文', async () => {
+    const options = service(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ zh: names.zh, ro: names.ro })));
+    await expect(handleGpsrNameRequest(translation, options)).resolves.toMatchObject({ ok: false, error: expect.stringContaining('结果格式') });
+  });
+
+  it('只接受受信任协议的服务根地址', () => {
+    expect(normalizeGpsrApiOrigin(' https://gpsr.example.com/ ')).toBe(origin);
+    expect(normalizeGpsrApiOrigin('http://127.0.0.1:8000')).toBe('http://127.0.0.1:8000');
+    expect(() => normalizeGpsrApiOrigin('http://gpsr.example.com')).toThrow();
+    expect(() => normalizeGpsrApiOrigin('https://gpsr.example.com/api')).toThrow();
+  });
+
+  it('使用 Chrome 120 已支持的 URL 构造函数解析服务地址', () => {
+    vi.spyOn(URL, 'parse').mockImplementation(() => { throw new Error('旧版浏览器无此方法'); });
+    expect(normalizeGpsrApiOrigin(origin)).toBe(origin);
+    expect(() => normalizeGpsrApiOrigin('invalid url')).toThrow('品名服务地址');
+  });
+
+  it('单行品名允许英文字母并拒绝内部换行', () => {
+    expect(readLabelName('Wireless headphones')).toBe('Wireless headphones');
+    expect(readLabelName(['商品', '品名'].join(String.fromCharCode(10)))).toBeNull();
   });
 });

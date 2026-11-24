@@ -100,11 +100,8 @@ describe('GPSR 标签表单', () => {
   });
 
   it('点击翻译后填充三语结果且保留逐项编辑', async () => {
-    const translations: Record<string, string> = { ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' };
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => {
-      const target = new URL(String(input)).searchParams.get('langpair')?.split('|')[1] ?? '';
-      return Response.json({ responseStatus: 200, responseData: { translatedText: translations[target] } });
-    }));
+    const translations = { zh: '蓝牙耳机', ro: 'Căști Bluetooth', bg: 'Bluetooth слушалки', hu: 'Bluetooth fülhallgató' };
+    vi.stubGlobal('chrome', { runtime: { sendMessage: async () => ({ ok: true, data: translations }) } });
     render(<GPSRLabelTab product={null}/>);
     fireEvent.change(screen.getByLabelText('商品原始品名'), { target: { value: '蓝牙耳机' } });
     fireEvent.click(screen.getByRole('button', { name: '翻译并生成三语品名' }));

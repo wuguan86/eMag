@@ -75,6 +75,7 @@ export function isGpsrLabelDraft(value: unknown): value is GpsrLabelDraft {
   return typeof names?.zh === 'string' && typeof names.ro === 'string' && typeof names.bg === 'string' && typeof names.hu === 'string'
     && (draft.productNameSource === undefined || (typeof draft.productNameSource?.text === 'string'
       && (draft.productNameSource.language === '' || isProductNameLanguage(draft.productNameSource.language))))
+    && (draft.productNameRefined === undefined || typeof draft.productNameRefined === 'string')
     && (draft.productNameRevision === undefined || typeof draft.productNameRevision === 'string')
     && (draft.material === '' || materialOptions.some((item) => item.id === draft.material))
     && ['model', 'batch', 'ean13', 'manualUrl'].every((key) => typeof draft[key as keyof GpsrLabelDraft] === 'string')

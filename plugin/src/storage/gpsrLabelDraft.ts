@@ -4,9 +4,16 @@ import { getLocalCell } from './localStore';
 import { isString, useLocalValue } from './hooks';
 import { createDefaultGpsrLabelDraft, isGpsrLabelDraft } from '../utils/gpsrLabel';
 import { namesFromSource, normalizeProductNameSource } from '../utils/productNameSource';
+import { readLabelName, translationKeys } from '../utils/gpsrNameProtocol';
 
 const defaultDraft = createDefaultGpsrLabelDraft();
 const draftCell = () => getLocalCell('gpsrLabel.draft', defaultDraft, isGpsrLabelDraft);
+
+function updateNameSource(draft: GpsrLabelDraft, source: ProductNameSource, refined: string) {
+  const effectiveName = readLabelName(refined.trim() || source.text) ?? '';
+  return { ...draft, productNameSource: source, productNameRefined: refined,
+    productName: namesFromSource({ ...source, text: effectiveName }), productNameRevision: crypto.randomUUID() };
+}
 
 export function useGpsrLabelDraft() {
   const cell = draftCell();
@@ -39,25 +46,34 @@ export function useGpsrLabelDraft() {
   const setField = <Key extends keyof GpsrLabelDraft>(key: Key, value: GpsrLabelDraft[Key]) => {
     cell.set({ ...currentDraft(), [key]: value });
   };
-  const setProductNameSource = (source: ProductNameSource) => {
-    // 原文与语言决定整组译文的有效性，同一次写入清除旧译文并复用已知语言的原文。
-    cell.set({ ...currentDraft(), productNameSource: source, productName: namesFromSource(source), productNameRevision: crypto.randomUUID() });
+  const setProductNameSource = (source: ProductNameSource, refined = '') => {
+    // 原文、语言、短品名和对应译文一次写入，避免窗口读到混用的品名。
+    const next = updateNameSource(currentDraft(), source, refined);
+    cell.set(next);
+    return next;
+  };
+  const setRefinedName = (refined: string) => {
+    const current = currentDraft();
+    cell.set(updateNameSource(current, current.productNameSource, refined));
   };
   const setProductName = (language: keyof LocalizedText, value: string) => {
     const current = currentDraft();
-    if (language === 'zh' && current.productNameSource.language === 'zh-CN') {
-      setProductNameSource({ text: value, language: 'zh-CN' });
-    } else cell.set({ ...current, productName: { ...current.productName, [language]: value }, productNameRevision: crypto.randomUUID() });
+    cell.set({ ...current, productName: { ...current.productName, [language]: value }, productNameRevision: crypto.randomUUID() });
   };
-  const applyTranslations = (expected: GpsrLabelDraft, translations: LocalizedText): boolean => {
+  const isCurrentName = (expected: GpsrLabelDraft) => {
     const current = currentDraft();
     // 品名编辑更新修订号，存储回声及无关字段修改保留修订号；兼容旧记录时再核对实际文本。
-    if (current.productNameRevision !== expected.productNameRevision
-      || (Object.keys(current.productName) as (keyof LocalizedText)[]).some((language) => current.productName[language] !== expected.productName[language])
-      || current.productNameSource.text !== expected.productNameSource?.text
-      || current.productNameSource.language !== expected.productNameSource?.language) return false;
-    cell.set({ ...current, productName: translations, productNameRevision: crypto.randomUUID() });
+    return current.productNameRevision === expected.productNameRevision
+      && translationKeys.every((language) => current.productName[language] === expected.productName[language])
+      && (current.productNameRefined ?? '') === (expected.productNameRefined ?? '')
+      && current.productNameSource.text === expected.productNameSource?.text
+      && current.productNameSource.language === expected.productNameSource?.language;
+  };
+  const applyTranslations = (expected: GpsrLabelDraft, translations: LocalizedText): boolean => {
+    if (!isCurrentName(expected)) return false;
+    cell.set({ ...currentDraft(), productName: translations, productNameRevision: crypto.randomUUID() });
     return true;
   };
-  return { draft, loading: snapshot.loading || legacyLoading, setDraft, setField, setProductName, setProductNameSource, applyTranslations };
+  return { draft, loading: snapshot.loading || legacyLoading, currentDraft, isCurrentName,
+    setDraft, setField, setProductName, setProductNameSource, setRefinedName, applyTranslations };
 }

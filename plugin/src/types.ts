@@ -67,6 +67,7 @@ export interface ProductNameSource { text: string; language: ProductNameLanguage
 export interface GpsrLabelDraft {
   productName: LocalizedText;
   productNameSource?: ProductNameSource;
+  productNameRefined?: string;
   productNameRevision?: string;
   material: GpsrMaterialId | '';
   model: string;

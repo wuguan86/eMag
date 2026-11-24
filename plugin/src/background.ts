@@ -12,7 +12,7 @@ interface ImageJob {
   expiresAt: number;
 }
 
-import { handleGpsrTranslationRequest } from './utils/gpsrTranslationProxy';
+import { handleGpsrNameRequest } from './utils/gpsrTranslationProxy';
 
 void chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false })
   .catch((error: unknown) => console.warn('设置工具栏侧边栏入口失败。', error));
@@ -51,8 +51,22 @@ function isQueueMessage(message: unknown): message is QueueImageJobMessage {
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   const host = senderHost(sender);
 
-  if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'TRANSLATE_GPSR_NAME') {
-    void handleGpsrTranslationRequest(message).then(respond);
+  if (typeof message === 'object' && message !== null && 'type' in message
+    && (message.type === 'REFINE_GPSR_NAME' || message.type === 'TRANSLATE_GPSR_NAME'
+      || message.type === 'SET_GPSR_API_TOKEN' || message.type === 'OPEN_GPSR_API_SETTINGS')) {
+    const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
+    const productPage = sender.url?.startsWith('https://www.emag.ro/');
+    if (sender.id !== chrome.runtime.id || !(extensionPage || productPage) || (message.type === 'SET_GPSR_API_TOKEN' && !extensionPage)) {
+      respond({ ok: false, error: '品名服务请求来源无效。' });
+      return;
+    }
+    if (message.type === 'OPEN_GPSR_API_SETTINGS') {
+      // 商品页可访问开放的 Shadow DOM，令牌只允许在扩展页面中输入。
+      void chrome.tabs.create({ url: chrome.runtime.getURL('popup.html?gpsr-service-settings') })
+        .then(() => respond({ ok: true, data: null }), () => respond({ ok: false, error: '无法打开品名服务设置，请重试。' }));
+      return true;
+    }
+    void handleGpsrNameRequest(message).then(respond);
     return true;
   }
 

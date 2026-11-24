@@ -1,12 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { Download, LoaderCircle } from 'lucide-react';
-import type { Company, GpsrLabelDraft, LocalizedText, ProductNameSource, ProductSnapshot } from '../types';
+import type { Company, ProductSnapshot } from '../types';
 import { useComplianceProfile } from '../storage/profile';
 import { useGpsrLabelDraft } from '../storage/gpsrLabelDraft';
 import { flushStorage } from '../storage/localStore';
-import { createDefaultGpsrLabelDraft } from '../utils/gpsrLabel';
-import { translateProductName } from '../utils/gpsrTranslation';
-import { readCurrentProductName } from '../utils/productImport';
 import { exportGpsrLabel } from '../utils/pdf/gpsrLabel';
 import { exportGpsrLabelImage } from '../utils/gpsrLabelImage';
 import { CompanyFields } from './CompanyFields';
@@ -15,63 +12,22 @@ import { GpsrLabelPreview } from './GpsrLabelPreview';
 import { GpsrLabelSettings } from './GpsrLabelSettings';
 import { GpsrProductFields } from './GpsrProductFields';
 import { GpsrTraceabilityFields } from './GpsrTraceabilityFields';
+import { useGpsrProductNames } from './useGpsrProductNames';
 
 export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
   const container = useRef<HTMLDivElement>(null);
   const label = useGpsrLabelDraft();
+  const names = useGpsrProductNames(label, product);
   const companyFields = useComplianceProfile();
-  const [message, setMessage] = useState('');
   const [exportMessage, setExportMessage] = useState('');
-  const [translating, setTranslating] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [previewValid, setPreviewValid] = useState(false);
   const [serviceOpen, setServiceOpen] = useState(false);
   const onPreviewValidity = useCallback((valid: boolean) => setPreviewValid(valid), []);
   const data = useMemo(() => ({ draft: label.draft, euRep: companyFields.profile.euRep, manufacturer: companyFields.profile.manufacturer }), [label.draft, companyFields.profile.euRep, companyFields.profile.manufacturer]);
 
-  const setField = <Key extends keyof GpsrLabelDraft>(key: Key, value: GpsrLabelDraft[Key]) => label.setField(key, value);
-  const setProductName = (language: keyof LocalizedText, value: string) => label.setProductName(language, value);
-  const setSource = (source: ProductNameSource) => {
-    label.setProductNameSource(source);
-    setMessage('原文或语言已更新，旧译文已清除，请重新翻译并核对。');
-  };
   const updateCompany = (role: 'euRep' | 'manufacturer', key: keyof Company, value: string) => {
     (role === 'euRep' ? companyFields.setEuRep : companyFields.setManufacturer)(key, value);
-  };
-
-  const importProduct = async () => {
-    try {
-      const source = await readCurrentProductName(product);
-      label.setProductNameSource(source);
-      setMessage('已导入商品标题并清除旧译文，请确认原文语言后翻译。');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '商品标题读取失败，请重试。');
-    }
-  };
-
-  const translate = async () => {
-    if (translating) return;
-    setTranslating(true);
-    setMessage('正在请求翻译…');
-    const expected = label.draft;
-    try {
-      const translations = await translateProductName(expected.productNameSource.text, expected.productNameSource.language);
-      const applied = label.applyTranslations(expected, translations);
-      setMessage(applied ? '中文对照和三语品名已填入，请核对后再导出。' : '品名已编辑，已忽略过期翻译，请按当前原文重新翻译。');
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : '翻译失败，请稍后重试。');
-    } finally { setTranslating(false); }
-  };
-
-  const resetProduct = () => {
-    const defaults = createDefaultGpsrLabelDraft();
-    label.setDraft({
-      ...label.draft,
-      productNameSource: { text: '', language: 'zh-CN' },
-      productName: { zh: '', ro: '', bg: '', hu: '' }, material: '', model: '', productSize: '', batch: defaults.batch,
-      ean13: '', manualUrl: '',
-    });
-    setMessage('产品信息已清空，打印规格、企业资料和适用标志已保留。');
   };
 
   const exportFile = async (format: 'pdf' | 'png') => {
@@ -102,13 +58,12 @@ export function GPSRLabelTab({ product }: { product: ProductSnapshot | null }) {
         container.current?.querySelector(`#${id}`)?.scrollIntoView({ block: 'start', behavior: 'auto' });
       }}>{title}</button>)}
     </nav>
-    <GpsrProductFields sectionId="gpsr-product" draft={label.draft} onField={setField} onName={setProductName} onSource={setSource} onImport={() => { void importProduct(); }}
-      onReset={resetProduct} onTranslate={() => { void translate(); }} translating={translating} message={message}/>
+    <GpsrProductFields sectionId="gpsr-product" draft={label.draft} onField={label.setField} names={names}/>
     <CompanyFields sectionId="gpsr-eu-rep" company={companyFields.profile.euRep} onChange={(key, value) => updateCompany('euRep', key, value)} gpsr
       headingAction={<button className="gpsr-service-link" type="button" onClick={() => setServiceOpen(true)}>没有欧代？点击特惠办理</button>}/>
     <CompanyFields sectionId="gpsr-manufacturer" manufacturer company={companyFields.profile.manufacturer} onChange={(key, value) => updateCompany('manufacturer', key, value)} gpsr/>
-    <GpsrTraceabilityFields sectionId="gpsr-traceability" draft={label.draft} onField={setField}/>
-    <GpsrLabelSettings sectionId="gpsr-settings" draft={label.draft} onField={setField}/>
+    <GpsrTraceabilityFields sectionId="gpsr-traceability" draft={label.draft} onField={label.setField}/>
+    <GpsrLabelSettings sectionId="gpsr-settings" draft={label.draft} onField={label.setField}/>
     <GpsrLabelPreview sectionId="gpsr-preview" data={data} onValidity={onPreviewValidity}/>
     </div>
     <div className="gpsr-export-bar">

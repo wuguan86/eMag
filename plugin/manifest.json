@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "eMAG 卖家工具箱",
-  "description": "商品透视、1688 选品试算、GPSR 标签与 DoC 草稿工具，数据仅保存在本地。",
+  "description": "商品透视、1688 选品试算、GPSR 标签与 DoC 草稿工具，支持商品品名提炼和翻译。",
   "version": "1.1.0",
   "minimum_chrome_version": "120",
   "permissions": [
@@ -12,8 +12,7 @@
   ],
   "host_permissions": [
     "https://air.1688.com/*",
-    "https://detail.1688.com/*",
-    "https://api.mymemory.translated.net/*"
+    "https://detail.1688.com/*"
   ],
   "background": {
     "service_worker": "src/background.ts",
