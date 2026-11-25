@@ -16,6 +16,7 @@ Copy-Item .env.example .env
 将生成的值写入 `.env` 的 `GPSR_API_TOKEN`，并配置模型供应商的 `LLM_BASE_URL`、`LLM_MODEL` 和 `LLM_API_KEY`。
 `LLM_BASE_URL` 填供应商的接口基础地址，例如 `https://api.example.com/v1`，应用会追加 `/chat/completions`。
 `GPSR_API_TOKEN` 用于插件访问 FastAPI，`LLM_API_KEY` 仅保存在服务端。
+如果模型默认开启深度思考且接口支持 `enable_thinking`（例如 `qwen3.8-flash`），可在 `.env` 中设置 `LLM_ENABLE_THINKING=false`，缩短品名提炼和翻译的等待时间。留空时沿用模型供应商的默认行为。修改后重启服务。
 
 ```powershell
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --env-file .env --host 127.0.0.1 --port 8000 --no-access-log

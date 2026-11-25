@@ -10,6 +10,7 @@ class Settings:
     model_name: str
     model_api_key: str = field(repr=False)
     api_token: str = field(repr=False)
+    model_enable_thinking: bool | None = None
 
     @classmethod
     def from_environment(cls) -> 'Settings':
@@ -28,4 +29,7 @@ class Settings:
             raise RuntimeError('LLM_BASE_URL 必须为模型 API 的 HTTP 或 HTTPS 基础地址。')
         if not re.fullmatch(r'[A-Za-z0-9._~-]{16,256}', values['GPSR_API_TOKEN']):
             raise RuntimeError('GPSR_API_TOKEN 必须使用 16 至 256 个字母、数字或 ._~- 字符。')
-        return cls(*(values[key] for key in keys))
+        thinking_option = os.getenv('LLM_ENABLE_THINKING', '').strip().lower()
+        if thinking_option not in {'', 'true', 'false'}:
+            raise RuntimeError('LLM_ENABLE_THINKING 必须填写 true 或 false，也可以留空。')
+        return cls(*(values[key] for key in keys), model_enable_thinking=thinking_option == 'true' if thinking_option else None)

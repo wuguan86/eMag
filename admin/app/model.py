@@ -45,15 +45,22 @@ class NameModel:
         return TranslatedNames(**names)
 
     async def complete(self, instruction: str, request: RefineRequest | TranslateRequest) -> dict:
+        payload = {
+            'model': self.settings.model_name,
+            'messages': [
+                {'role': 'system', 'content': instruction},
+                {'role': 'user', 'content': request.model_dump_json(by_alias=True)},
+            ],
+        }
+        # 仅在显式配置时发送扩展参数，以兼容不支持思考开关的模型供应商。
+        if self.settings.model_enable_thinking is not None:
+            payload['enable_thinking'] = self.settings.model_enable_thinking
         try:
             async with asyncio.timeout(15):
                 response = await self.client.post(
                     f'{self.settings.model_base_url.rstrip("/")}/chat/completions',
                     headers={'Authorization': f'Bearer {self.settings.model_api_key}'},
-                    json={'model': self.settings.model_name, 'messages': [
-                        {'role': 'system', 'content': instruction},
-                        {'role': 'user', 'content': request.model_dump_json(by_alias=True)},
-                    ]},
+                    json=payload,
                 )
         except (TimeoutError, httpx.TimeoutException) as error:
             raise ModelError(504, '模型请求超时，请稍后重试。') from error

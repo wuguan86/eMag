@@ -53,6 +53,33 @@ def test_translate_calls_model_once_and_reuses_original_for_source_target():
     assert response.json() == {**NAMES, 'ro': 'Maiou de damă'}
 
 
+@pytest.mark.parametrize(('configured', 'expected'), [(None, None), ('false', False), ('true', True)])
+def test_translate_passes_thinking_option_only_when_configured(monkeypatch, configured, expected):
+    monkeypatch.setenv('LLM_BASE_URL', SETTINGS.model_base_url)
+    monkeypatch.setenv('LLM_MODEL', SETTINGS.model_name)
+    monkeypatch.setenv('LLM_API_KEY', SETTINGS.model_api_key)
+    monkeypatch.setenv('GPSR_API_TOKEN', SETTINGS.api_token)
+    if configured is None:
+        monkeypatch.delenv('LLM_ENABLE_THINKING', raising=False)
+    else:
+        monkeypatch.setenv('LLM_ENABLE_THINKING', configured)
+
+    def handler(request):
+        body = json.loads(request.content)
+        if expected is None:
+            assert 'enable_thinking' not in body
+        else:
+            assert body['enable_thinking'] is expected
+        return model_response({key: value for key, value in NAMES.items() if key != 'zh'})
+
+    transport = httpx.MockTransport(handler)
+    with TestClient(create_app(Settings.from_environment(), model_transport=transport)) as client:
+        response = client.post(f'{API}/translate', json={'name': NAMES['zh'], 'sourceLanguage': 'zh-CN'}, headers=AUTH)
+
+    assert response.status_code == 200
+    assert response.json() == NAMES
+
+
 def test_health_authentication_and_invalid_inputs_do_not_call_model():
     def handler(_request):
         pytest.fail('无效请求不应调用模型')
@@ -131,10 +158,22 @@ def test_config_requires_all_values_and_keeps_credentials_out_of_repr(monkeypatc
               'LLM_API_KEY': SETTINGS.model_api_key, 'GPSR_API_TOKEN': SETTINGS.api_token}
     for key, value in values.items():
         monkeypatch.setenv(key, value)
+    monkeypatch.delenv('LLM_ENABLE_THINKING', raising=False)
     loaded = Settings.from_environment()
     assert loaded == SETTINGS
     assert SETTINGS.model_api_key not in repr(loaded)
     assert SETTINGS.api_token not in repr(loaded)
     monkeypatch.delenv('LLM_API_KEY')
     with pytest.raises(RuntimeError, match='LLM_API_KEY'):
+        Settings.from_environment()
+
+
+def test_config_rejects_invalid_thinking_option(monkeypatch):
+    monkeypatch.setenv('LLM_BASE_URL', SETTINGS.model_base_url)
+    monkeypatch.setenv('LLM_MODEL', SETTINGS.model_name)
+    monkeypatch.setenv('LLM_API_KEY', SETTINGS.model_api_key)
+    monkeypatch.setenv('GPSR_API_TOKEN', SETTINGS.api_token)
+    monkeypatch.setenv('LLM_ENABLE_THINKING', 'disabled')
+
+    with pytest.raises(RuntimeError, match='LLM_ENABLE_THINKING'):
         Settings.from_environment()
