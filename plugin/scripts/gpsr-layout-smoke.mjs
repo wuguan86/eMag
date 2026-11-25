@@ -6,9 +6,9 @@ process.env.PLAYWRIGHT_BROWSERS_PATH ??= path.resolve('tmp/browsers');
 const { chromium } = await import('@playwright/test');
 const output = path.resolve('test-results/gpsr-layout');
 await mkdir(output, { recursive: true });
-const extensionPath = path.resolve('dist');
+const extensionPath = path.resolve(process.env.EMAG_EXTENSION_PATH || 'dist');
 // 使用独立测试配置，避免读取或修改用户浏览器中的企业资料。
-const context = await chromium.launchPersistentContext(path.resolve('tmp/gpsr-layout-profile'), {
+const context = await chromium.launchPersistentContext(path.resolve(process.env.EMAG_BROWSER_PROFILE || 'tmp/gpsr-layout-profile'), {
   channel: 'chromium', headless: true, viewport: { width: 1440, height: 1000 },
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
 });

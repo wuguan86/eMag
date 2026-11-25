@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "eMAG 卖家工具箱",
-  "description": "商品透视、1688 选品试算、GPSR 标签与 DoC 草稿工具，支持商品品名提炼和翻译。",
-  "version": "1.1.0",
+  "description": "面向 eMAG 跨境卖家的商品透视、1688 图搜、利润试算和 GPSR 标签工具，支持商品品名提炼与翻译。",
+  "version": "1.1.1",
   "minimum_chrome_version": "120",
   "permissions": [
     "storage",

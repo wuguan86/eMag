@@ -1,11 +1,12 @@
 FROM python:3.13-slim
 
 WORKDIR /app
-ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1 SERVICE_LOG_DIRECTORY=/app/logs
 
 COPY requirements.txt .
 RUN python -m pip install --no-cache-dir -r requirements.txt \
-    && adduser --disabled-password --gecos '' appuser
+    && adduser --disabled-password --gecos '' appuser \
+    && mkdir -p /app/logs && chown appuser:appuser /app/logs
 COPY app ./app
 
 USER appuser

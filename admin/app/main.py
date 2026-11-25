@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 from .model import ModelError, NameModel
 from .names import RefinedName, RefineRequest, TranslatedNames, TranslateRequest
 from .settings import Settings
+from .service_logging import service_logging
 
 
 logger = logging.getLogger('uvicorn.error')
@@ -22,7 +23,8 @@ def create_app(settings: Settings | None = None, *, model_transport: httpx.Async
     @asynccontextmanager
     async def lifespan(application: FastAPI):
         config = settings or Settings.from_environment()
-        async with httpx.AsyncClient(transport=model_transport, timeout=15) as client:
+        async with service_logging() as operation_logger, httpx.AsyncClient(transport=model_transport, timeout=15) as client:
+            application.state.operation_logger = operation_logger
             application.state.name_model = NameModel(config, client)
             yield
 
@@ -42,23 +44,23 @@ def create_app(settings: Settings | None = None, *, model_transport: httpx.Async
 
     @application.post('/api/v1/gpsr/names/refine')
     async def refine(payload: RefineRequest, request: Request) -> RefinedName:
-        return await run_model('提炼', request.app.state.name_model.refine(payload))
+        return await run_model('提炼', request.app.state.name_model.refine(payload), request.app.state.operation_logger)
 
     @application.post('/api/v1/gpsr/names/translate')
     async def translate(payload: TranslateRequest, request: Request) -> TranslatedNames:
-        return await run_model('翻译', request.app.state.name_model.translate(payload))
+        return await run_model('翻译', request.app.state.name_model.translate(payload), request.app.state.operation_logger)
 
     return application
 
 
-async def run_model(operation: str, result: Awaitable[NameResult]) -> NameResult:
+async def run_model(operation: str, result: Awaitable[NameResult], operation_logger: logging.Logger = logger) -> NameResult:
     started = perf_counter()
     try:
         names = await result
     except ModelError as error:
-        logger.warning('品名%s失败，状态码 %d，耗时 %.2f 秒。', operation, error.status, perf_counter() - started)
+        operation_logger.warning('品名%s失败，状态码 %d，耗时 %.2f 秒。', operation, error.status, perf_counter() - started)
         raise HTTPException(error.status, str(error)) from None
-    logger.info('品名%s完成，耗时 %.2f 秒。', operation, perf_counter() - started)
+    operation_logger.info('品名%s完成，状态码 200，耗时 %.2f 秒。', operation, perf_counter() - started)
     return names
 
 

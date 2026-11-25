@@ -1,7 +1,7 @@
 {
   "name": "emag-seller-toolkit",
   "private": true,
-  "version": "1.1.0",
+  "version": "1.1.1",
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
@@ -9,9 +9,12 @@
     "lint": "eslint . --max-warnings 0",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:browser": "node scripts/smoke.mjs",
+    "test:browser": "node scripts/gpsr-layout-smoke.mjs && node scripts/saved-page-smoke.mjs tests/fixtures/emag-columbia.html",
     "probe:emag": "node scripts/probe-emag.mjs",
-    "check": "npm run test && npm run lint && npm run build"
+    "check": "npm run test && npm run lint && npm run build",
+    "package": "node scripts/package.mjs --check-config && npm run check && node scripts/package.mjs",
+    "package:verify": "node scripts/package.mjs --verify",
+    "test:release": "node scripts/release-smoke.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",
@@ -40,6 +43,7 @@
     "eslint": "^9.39.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.4.24",
+    "fflate": "^0.8.3",
     "globals": "^16.5.0",
     "jsdom": "^27.4.0",
     "typescript": "~5.9.3",

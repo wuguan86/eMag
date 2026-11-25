@@ -55,6 +55,7 @@ export function FeedbackDialog({ onClose, title = '问题反馈 / 功能定制',
       </dl>
       {email && <p className="helper" role="status">{copyStatus === 'error' ? '复制失败，请手动复制邮箱。' : copyStatus === 'success' ? '联系邮箱已复制。' : ''}</p>}
       <p className="helper">表单保存在本机；翻译和图搜会发送所需品名或图片。</p>
+      <p className="helper">独立第三方卖家辅助工具，eMAG、1688 的商标归各自权利人所有。</p>
     </div>
   </div>;
 }

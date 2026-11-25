@@ -15,9 +15,9 @@ const originalImage = document.querySelector('#product-gallery [data-ph-id="imag
 assert.ok(originalImage);
 const output = path.resolve('test-results');
 await mkdir(output, { recursive: true });
-const extensionPath = path.resolve('dist');
+const extensionPath = path.resolve(process.env.EMAG_EXTENSION_PATH || 'dist');
 const imageSearchFixture = await readFile(path.resolve('tests/fixtures/1688-image-search.html'), 'utf8');
-const context = await chromium.launchPersistentContext(path.resolve('tmp/saved-page-profile'), {
+const context = await chromium.launchPersistentContext(path.resolve(process.env.EMAG_BROWSER_PROFILE || 'tmp/saved-page-profile'), {
   channel: 'chromium', headless: true, viewport: { width: 1440, height: 1000 },
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`],
 });

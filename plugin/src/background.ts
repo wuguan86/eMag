@@ -51,6 +51,18 @@ function isQueueMessage(message: unknown): message is QueueImageJobMessage {
 chrome.runtime.onMessage.addListener((message: unknown, sender, respond) => {
   const host = senderHost(sender);
 
+  if (typeof message === 'object' && message !== null && 'type' in message && message.type === 'OPEN_PRIVACY_PAGE') {
+    const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));
+    if (sender.id !== chrome.runtime.id || !(extensionPage || host === 'www.emag.ro')) {
+      respond({ ok: false, error: '隐私说明请求来源无效。' });
+      return;
+    }
+    // 从后台打开固定的本地说明页，保证商品页的 Shadow DOM 入口也能访问扩展资源。
+    void chrome.tabs.create({ url: chrome.runtime.getURL('privacy.html') })
+      .then(() => respond({ ok: true }), () => respond({ ok: false, error: '无法打开隐私说明。' }));
+    return true;
+  }
+
   if (typeof message === 'object' && message !== null && 'type' in message
     && (message.type === 'REFINE_GPSR_NAME' || message.type === 'TRANSLATE_GPSR_NAME')) {
     const extensionPage = sender.url?.startsWith(chrome.runtime.getURL('/'));

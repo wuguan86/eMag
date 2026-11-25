@@ -1,6 +1,22 @@
 # eMAG 卖家工具箱
 
-基于 Chrome Manifest V3、Vite、React 19、TypeScript 和 Tailwind CSS 4 的本地扩展。包含 eMAG 罗马尼亚站商品透视、1688 图搜、利润试算、GPSR 热敏标签及 A4 DoC 草稿。
+基于 Chrome Manifest V3、Vite、React 19、TypeScript 和 Tailwind CSS 4 的浏览器扩展。当前界面提供 eMAG 罗马尼亚站商品透视、1688 图搜、利润试算及 GPSR 热敏标签。
+
+## 1.1.1 正式打包
+
+在本目录配置 `.env.local` 后执行以下命令。公开配置字段见 `.env.example`，上架材料与服务部署事项见 [上架与打包说明](docs/STORE_RELEASE.md)。
+
+~~~powershell
+npm ci
+npm run package
+npm run test:release
+~~~
+
+`npm run package` 会依次检查正式服务配置、运行全部单元测试和 lint、重新构建，再生成 `release/eMAG-seller-toolkit-1.1.1-YYYYMMDD.zip`。脚本统一 ZIP 路径为 `/`，确认根目录 Manifest、图标、入口及懒加载资源完整，并附带隐私说明和第三方许可。打包使用上海时区的日期。
+
+`npm run test:release` 直接解压并加载生成的 ZIP，检查商品页与独立侧栏中的隐私入口、表单保存、PDF/PNG 导出及保存商品页与模拟 1688 页面之间的图搜流程。浏览器依赖使用 `tmp/browsers`，首次运行可执行 `npx playwright install chromium`，并将 `PLAYWRIGHT_BROWSERS_PATH` 设为该目录。
+
+可使用 `npm run package:verify -- release/具体包名.zip` 独立检查 ZIP。插件底部“隐私与数据”会打开随包 `privacy.html`，其内容根据公开配置生成。配置 `VITE_PRIVACY_POLICY_URL` 后会同时展示线上政策入口。
 
 ## 安装与加载
 
@@ -127,7 +143,7 @@ node scripts/pdf-preview-check.mjs
 
 测试截图及浏览器生成的 PDF 位于 `test-results/`；临时文件和浏览器缓存位于 `tmp/`，均已加入忽略列表。
 
-当前版本为 1.1.0。点击“🔍 一键 1688 搜同款货源”后会打开图片搜索页、准备 JPEG，并尝试自动使用顶部上传控件及点击图片卡片中的“搜索图片”。失败提示区分查找文件框和等待上传完成；有图片数据时可在提示中点击“下载 JPEG，手动上传”。
+当前版本为 1.1.1。点击“🔍 一键 1688 搜同款货源”后会打开图片搜索页、准备 JPEG，并尝试自动使用顶部上传控件及点击图片卡片中的“搜索图片”。失败提示区分查找文件框和等待上传完成；有图片数据时可在提示中点击“下载 JPEG，手动上传”。
 
 更新已有安装时，打开 `chrome://extensions`，对“eMAG 卖家工具箱”点击重新加载，再刷新商品页面。只刷新商品页不会加载磁盘上的新扩展代码。加载目录仍为 `E:\project\eMAG\plugin\dist`。
 

@@ -51,6 +51,7 @@ server {
     ssl_certificate     /etc/letsencrypt/live/gpsr.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/gpsr.example.com/privkey.pem;
     client_max_body_size 32k;
+    access_log off;
 
     location = /health {
         proxy_pass http://127.0.0.1:8000;
@@ -68,6 +69,20 @@ server {
     }
 }
 ```
+
+## 30 天应用日志
+
+更新本次代码并重启服务后，品名服务按 UTC 日期将操作类型、成功状态或错误状态码及耗时写入 `logs/gpsr-YYYY-MM-DD.log`。默认保留当天及此前 29 个自然日，启动、请求写入以及每日 UTC 零点都会清理过期文件。应用日志字段仅包含固定操作描述、状态和耗时。
+
+日志目录默认位于 `admin/logs`，可通过 `SERVICE_LOG_DIRECTORY` 设置。Docker 镜像已为非 root 应用用户准备 `/app/logs`。需要容器重建后延续日志时，可为该目录挂载命名卷。
+
+~~~sh
+docker run -d --name emag-gpsr-admin --restart unless-stopped \
+  --env-file .env -p 127.0.0.1:8000:8000 \
+  --mount source=emag-gpsr-logs,target=/app/logs emag-gpsr-admin
+~~~
+
+自有服务的清理范围为该目录下的 `gpsr-YYYY-MM-DD.log`。原有容器输出日志、Nginx 错误日志、云平台日志及模型平台的数据保存需要分别核实与配置。上方示例关闭了 Nginx 访问日志，Uvicorn 启动命令也关闭访问日志。将日志策略写入公开政策前应确认已在线部署并生效。
 
 ## 构建插件并联调
 
