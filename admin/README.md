@@ -85,10 +85,10 @@ npm run build
 
 ## 接口
 
-| 请求 | JSON 输入 | 成功响应 |
-| --- | --- | --- |
-| `GET /health` | 空 | `{"status":"ok"}` |
-| `POST /api/v1/gpsr/names/refine` | `{"name":"商品原标题","sourceLanguage":"zh-CN"}` | `{"name":"短品名"}` |
+| 请求                                  | JSON 输入                                  | 成功响应                             |
+| ----------------------------------- | ---------------------------------------- | -------------------------------- |
+| `GET /health`                       | 空                                        | `{"status":"ok"}`                |
+| `POST /api/v1/gpsr/names/refine`    | `{"name":"商品原标题","sourceLanguage":"zh-CN"}` | `{"name":"短品名"}`                 |
 | `POST /api/v1/gpsr/names/translate` | `{"name":"短品名","sourceLanguage":"zh-CN"}` | 包含 `zh`、`ro`、`bg`、`hu` 的 JSON 对象 |
 
 两个 POST 接口匿名访问，由反向代理按客户端 IP 限流。提炼支持最长 2000 字符的标题，`sourceLanguage` 可填 `null`。翻译支持最长 160 字符的单行品名，原文语言可选 `zh-CN`、`ro`、`bg`、`hu`、`en`。如果原文语言与某个输出字段相同，该字段直接复用品名。
