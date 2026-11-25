@@ -19,7 +19,7 @@ npm run build
 
 开发时运行 `npm run dev`，首次仍需加载生成的 `dist`；更改 Manifest 后重新加载扩展和商品页面。正式使用前重新执行 `npm run build`。
 
-品名提炼和翻译需要连接 [GPSR 品名服务](../admin/README.md)。构建前设置 `VITE_GPSR_API_ORIGIN` 为服务的站点根地址，重新加载插件后，在「GPSR 标签 → 产品基础信息 → 品名服务设置」填写服务访问令牌。
+品名提炼和翻译需要连接 [GPSR 品名服务](../admin/README.md)。构建前设置 `VITE_GPSR_API_ORIGIN` 为服务的站点根地址，重载插件后即可匿名调用，无需用户注册或填写服务令牌。公网部署须通过 Nginx 等反向代理限制请求频率，不能直接公开 Uvicorn 端口。
 
 ## 商品透视与利润
 

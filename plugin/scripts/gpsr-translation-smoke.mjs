@@ -17,7 +17,6 @@ assert.equal(apiOrigin.hostname, '127.0.0.1', '品名冒烟测试只能连接本
 assert.equal(apiOrigin.protocol, 'http:');
 assert.ok(apiOrigin.port, '请配置本地夹具端口');
 
-const token = 'browser-smoke-token';
 const emagTitle = 'Salopeta de schi femei, ofertă specială';
 const emagShortName = 'Salopetă de schi pentru femei';
 const offerTitle = '80-200斤吊带螺纹背心女大码修身外穿内搭打底衫无袖薄厂家直销';
@@ -27,10 +26,7 @@ const requests = [];
 // 本地夹具验证扩展网络权限和真实后台消息传递，无需模型密钥。
 const server = createServer(async (request, response) => {
   response.setHeader('Content-Type', 'application/json');
-  if (request.headers.authorization !== `Bearer ${token}`) {
-    response.writeHead(401).end(JSON.stringify({ detail: '服务访问令牌无效。' }));
-    return;
-  }
+  assert.equal(request.headers.authorization, undefined, '插件匿名调用服务');
   try {
     const chunks = [];
     for await (const chunk of request) chunks.push(chunk);
@@ -81,15 +77,7 @@ try {
   await product.goto('https://www.emag.ro/salopeta/pd/ABC123/');
   await product.getByRole('button', { name: '打开 eMAG 卖家工具箱' }).click();
   await product.getByRole('button', { name: 'GPSR 标签', exact: true }).click();
-  assert.equal(await product.getByLabel('服务访问令牌').count(), 0);
-  const [settings] = await Promise.all([
-    context.waitForEvent('page'), product.getByRole('button', { name: '品名服务设置' }).click(),
-  ]);
-  await settings.waitForURL(`chrome-extension://${extensionId}/popup.html?gpsr-service-settings`);
-  await settings.getByLabel('服务访问令牌').fill(token);
-  await settings.getByRole('button', { name: '保存令牌' }).click();
-  await settings.getByText(/服务访问令牌已保存/).waitFor();
-  await settings.close();
+  assert.equal(await product.getByRole('button', { name: '品名服务设置' }).count(), 0);
 
   await product.getByRole('button', { name: '从当前商品导入' }).click();
   await expect(product.getByLabel('商品原始品名', { exact: true })).toHaveValue(emagTitle);
@@ -150,7 +138,7 @@ try {
     { method: 'POST', path: '/api/v1/gpsr/names/translate', body: { name: offerShortName, sourceLanguage: 'zh-CN' } },
   ]);
   assert.deepEqual(failures, [], '浏览器不能出现运行错误');
-  console.log('GPSR 浏览器验证通过：令牌设置、eMAG 和 1688 导入提炼、短品名翻译及跨窗口同步。');
+  console.log('GPSR 浏览器验证通过：匿名请求、eMAG 和 1688 导入提炼、短品名翻译及跨窗口同步。');
 } catch (error) {
   if (context) {
     for (const page of context.pages()) {

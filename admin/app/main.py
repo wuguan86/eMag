@@ -1,15 +1,13 @@
-import hmac
 import logging
 from collections.abc import Awaitable
 from contextlib import asynccontextmanager
 from time import perf_counter
-from typing import Annotated, TypeVar
+from typing import TypeVar
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from .model import ModelError, NameModel
 from .names import RefinedName, RefineRequest, TranslatedNames, TranslateRequest
@@ -17,7 +15,6 @@ from .settings import Settings
 
 
 logger = logging.getLogger('uvicorn.error')
-bearer = HTTPBearer(auto_error=False)
 NameResult = TypeVar('NameResult', RefinedName, TranslatedNames)
 
 
@@ -26,15 +23,10 @@ def create_app(settings: Settings | None = None, *, model_transport: httpx.Async
     async def lifespan(application: FastAPI):
         config = settings or Settings.from_environment()
         async with httpx.AsyncClient(transport=model_transport, timeout=15) as client:
-            application.state.api_token = config.api_token
             application.state.name_model = NameModel(config, client)
             yield
 
     application = FastAPI(title='GPSR 品名服务', lifespan=lifespan)
-
-    def authorize(request: Request, credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> None:
-        if credentials is None or not hmac.compare_digest(credentials.credentials.encode(), request.app.state.api_token.encode()):
-            raise HTTPException(401, '服务访问令牌无效，请检查插件配置。', headers={'WWW-Authenticate': 'Bearer'})
 
     @application.exception_handler(RequestValidationError)
     async def invalid_request(_request: Request, error: RequestValidationError) -> JSONResponse:
@@ -48,11 +40,11 @@ def create_app(settings: Settings | None = None, *, model_transport: httpx.Async
     async def health() -> dict[str, str]:
         return {'status': 'ok'}
 
-    @application.post('/api/v1/gpsr/names/refine', dependencies=[Depends(authorize)])
+    @application.post('/api/v1/gpsr/names/refine')
     async def refine(payload: RefineRequest, request: Request) -> RefinedName:
         return await run_model('提炼', request.app.state.name_model.refine(payload))
 
-    @application.post('/api/v1/gpsr/names/translate', dependencies=[Depends(authorize)])
+    @application.post('/api/v1/gpsr/names/translate')
     async def translate(payload: TranslateRequest, request: Request) -> TranslatedNames:
         return await run_model('翻译', request.app.state.name_model.translate(payload))
 

@@ -1,5 +1,4 @@
 import os
-import re
 from dataclasses import dataclass, field
 from urllib.parse import urlsplit
 
@@ -9,12 +8,11 @@ class Settings:
     model_base_url: str
     model_name: str
     model_api_key: str = field(repr=False)
-    api_token: str = field(repr=False)
     model_enable_thinking: bool | None = None
 
     @classmethod
     def from_environment(cls) -> 'Settings':
-        keys = ('LLM_BASE_URL', 'LLM_MODEL', 'LLM_API_KEY', 'GPSR_API_TOKEN')
+        keys = ('LLM_BASE_URL', 'LLM_MODEL', 'LLM_API_KEY')
         values = {key: os.getenv(key, '').strip() for key in keys}
         missing = [key for key in keys if not values[key]]
         if missing:
@@ -27,8 +25,6 @@ class Settings:
             valid_url = False
         if not valid_url:
             raise RuntimeError('LLM_BASE_URL 必须为模型 API 的 HTTP 或 HTTPS 基础地址。')
-        if not re.fullmatch(r'[A-Za-z0-9._~-]{16,256}', values['GPSR_API_TOKEN']):
-            raise RuntimeError('GPSR_API_TOKEN 必须使用 16 至 256 个字母、数字或 ._~- 字符。')
         thinking_option = os.getenv('LLM_ENABLE_THINKING', '').strip().lower()
         if thinking_option not in {'', 'true', 'false'}:
             raise RuntimeError('LLM_ENABLE_THINKING 必须填写 true 或 false，也可以留空。')

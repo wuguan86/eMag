@@ -10,12 +10,11 @@ Chrome 扩展调用 FastAPI，FastAPI 通过兼容 OpenAI Chat Completions 的�
 py -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
 Copy-Item .env.example .env
-.\.venv\Scripts\python.exe -c "import secrets; print(secrets.token_urlsafe(32))"
 ```
 
-将生成的值写入 `.env` 的 `GPSR_API_TOKEN`，并配置模型供应商的 `LLM_BASE_URL`、`LLM_MODEL` 和 `LLM_API_KEY`。
+配置模型供应商的 `LLM_BASE_URL`、`LLM_MODEL` 和 `LLM_API_KEY`。
 `LLM_BASE_URL` 填供应商的接口基础地址，例如 `https://api.example.com/v1`，应用会追加 `/chat/completions`。
-`GPSR_API_TOKEN` 用于插件访问 FastAPI，`LLM_API_KEY` 仅保存在服务端。
+品名接口匿名开放给插件使用，`LLM_API_KEY` 仅保存在服务端。服务端不再需要插件访问令牌。
 如果模型默认开启深度思考且接口支持 `enable_thinking`（例如 `qwen3.8-flash`），可在 `.env` 中设置 `LLM_ENABLE_THINKING=false`，缩短品名提炼和翻译的等待时间。留空时沿用模型供应商的默认行为。修改后重启服务。
 
 ```powershell
@@ -31,7 +30,7 @@ Invoke-RestMethod http://127.0.0.1:8000/health
 
 ## 云服务器部署
 
-在云服务器的 `admin` 目录创建并填写 `.env`，将容器端口绑定到本机，由 Nginx 提供 HTTPS 公网入口。
+在云服务器的 `admin` 目录创建并填写 `.env`，将容器端口绑定到本机，由 Nginx 提供 HTTPS 公网入口。品名接口匿名访问，公网流量必须经过启用 IP 限流的 Nginx，不要直接暴露 Uvicorn 端口。
 
 ```sh
 chmod 600 .env
@@ -41,10 +40,10 @@ docker run -d --name emag-gpsr-admin --restart unless-stopped \
 curl -fsS http://127.0.0.1:8000/health
 ```
 
-将下面的 Nginx 配置加入 `http` 上下文，例如放到由它加载的站点配置文件中。替换域名和证书路径，再用 `nginx -t` 检查并重新加载。API 每个客户端 IP 限 30 次/分钟，支持最多 5 个额外突发请求。
+将下面的 Nginx 配置加入 `http` 上下文，例如放到由它加载的站点配置文件中。替换域名和证书路径，再用 `nginx -t` 检查并重新加载。API 每个客户端 IP 限 10 次/分钟，支持最多 3 个额外突发请求。
 
 ```nginx
-limit_req_zone $binary_remote_addr zone=gpsr_api:10m rate=30r/m;
+limit_req_zone $binary_remote_addr zone=gpsr_api:10m rate=10r/m;
 
 server {
     listen 443 ssl;
@@ -58,7 +57,7 @@ server {
     }
 
     location ~ ^/api/v1/gpsr/names/(refine|translate)$ {
-        limit_req zone=gpsr_api burst=5 nodelay;
+        limit_req zone=gpsr_api burst=3 nodelay;
         limit_req_status 429;
         proxy_read_timeout 25s;
         proxy_pass http://127.0.0.1:8000;
@@ -80,9 +79,9 @@ npm ci
 npm run build
 ```
 
-在 Chrome 加载或重新加载 `plugin/dist`，进入「GPSR 标签 → 产品基础信息 → 品名服务设置」，填入 `GPSR_API_TOKEN` 并保存。商品页抽屉的入口会打开扩展自己的设置页。
+在 Chrome 加载或重新加载 `plugin/dist`，打开 eMAG 或 1688 商品页即可使用品名提炼和翻译，无需填写服务令牌。
 
-打开一条 eMAG 或 1688 商品详情，点击「从当前商品导入」，检查原标题完整、短品名保留商品类别和必要规格，再点击「翻译并生成三语品名」，核对中文、RO、BG 和 HU。服务地址变更后重新构建并加载插件，再保存新地址对应的访问令牌。
+打开一条 eMAG 或 1688 商品详情，点击「从当前商品导入」，检查原标题完整、短品名保留商品类别和必要规格，再点击「翻译并生成三语品名」，核对中文、RO、BG 和 HU。服务地址变更后重新构建并加载插件。
 
 ## 接口
 
@@ -92,4 +91,4 @@ npm run build
 | `POST /api/v1/gpsr/names/refine` | `{"name":"商品原标题","sourceLanguage":"zh-CN"}` | `{"name":"短品名"}` |
 | `POST /api/v1/gpsr/names/translate` | `{"name":"短品名","sourceLanguage":"zh-CN"}` | 包含 `zh`、`ro`、`bg`、`hu` 的 JSON 对象 |
 
-两个 POST 接口使用 `Authorization: Bearer <GPSR_API_TOKEN>`。提炼支持最长 2000 字符的标题，`sourceLanguage` 可填 `null`。翻译支持最长 160 字符的单行品名，原文语言可选 `zh-CN`、`ro`、`bg`、`hu`、`en`。如果原文语言与某个输出字段相同，该字段直接复用品名。
+两个 POST 接口匿名访问，由反向代理按客户端 IP 限流。提炼支持最长 2000 字符的标题，`sourceLanguage` 可填 `null`。翻译支持最长 160 字符的单行品名，原文语言可选 `zh-CN`、`ro`、`bg`、`hu`、`en`。如果原文语言与某个输出字段相同，该字段直接复用品名。

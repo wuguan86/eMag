@@ -5,7 +5,6 @@ import { materialOptions } from '../utils/gpsrLabel';
 import { labelNameLimit, productTitleLimit } from '../utils/gpsrNameProtocol';
 import { normalizeProductNameSource, productNameLanguages } from '../utils/productNameSource';
 import { Section, TextField } from './Fields';
-import { GpsrNameServiceSettings } from './GpsrNameServiceSettings';
 import type { useGpsrProductNames } from './useGpsrProductNames';
 
 export function GpsrProductFields({ draft, onField, names, sectionId }: {
@@ -40,7 +39,6 @@ export function GpsrProductFields({ draft, onField, names, sectionId }: {
     </div>
     <p className="helper">导入、提炼或翻译时，相关品名和语言会发送至品名服务。请核对短品名和译文后再导出。</p>
     {names.message && <p className="export-message" role="status">{names.message}</p>}
-    <GpsrNameServiceSettings/>
     <TextField label="中文品名" value={draft.productName.zh} onChange={(value) => names.setName('zh', value)} maxLength={labelNameLimit}/>
     {(['ro', 'bg', 'hu'] as const).map((language) => {
       const labels = { ro: '罗马尼亚语 · RO', bg: '保加利亚语 · BG', hu: '匈牙利语 · HU' };

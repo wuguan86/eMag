@@ -1,5 +1,5 @@
 import type { LocalizedText, ProductNameLanguage } from '../types';
-import { asRecord, isGpsrApiToken, labelNameLimit, productTitleLimit, readLabelName, readTranslatedNames, type GpsrNameRequest } from './gpsrNameProtocol';
+import { asRecord, labelNameLimit, productTitleLimit, readLabelName, readTranslatedNames, type GpsrNameRequest } from './gpsrNameProtocol';
 import { containsChinese, isProductNameLanguage } from './productNameSource';
 
 async function requestNameService(request: GpsrNameRequest): Promise<unknown> {
@@ -35,14 +35,4 @@ export async function translateProductName(name: string, source: ProductNameLang
   const names = readTranslatedNames(data);
   if (!names) throw new Error('翻译结果格式无效，请重试。');
   return names;
-}
-
-export async function saveGpsrApiToken(token: string): Promise<void> {
-  const normalized = token.trim();
-  if (!isGpsrApiToken(normalized)) throw new Error('服务访问令牌格式无效，请核对后重试。');
-  await requestNameService({ type: 'SET_GPSR_API_TOKEN', token: normalized });
-}
-
-export async function openGpsrApiSettings(): Promise<void> {
-  await requestNameService({ type: 'OPEN_GPSR_API_SETTINGS' });
 }

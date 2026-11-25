@@ -1,16 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { normalizeGpsrApiOrigin } from '../src/config/gpsrApi';
-import { refineProductName, saveGpsrApiToken, translateProductName } from '../src/utils/gpsrTranslation';
+import { refineProductName, translateProductName } from '../src/utils/gpsrTranslation';
 import { handleGpsrNameRequest } from '../src/utils/gpsrTranslationProxy';
 import { readLabelName } from '../src/utils/gpsrNameProtocol';
 
 const names = { zh: '女士滑雪服', ro: 'Salopetă de schi', bg: 'Дамски ски костюм', hu: 'Női síruha' };
-const token = 'sample-service-token';
 const origin = 'https://gpsr.example.com';
 const translation = { type: 'TRANSLATE_GPSR_NAME', name: names.ro, sourceLanguage: 'ro' };
 
 function service(request = vi.fn<typeof fetch>().mockResolvedValue(Response.json(names))) {
-  return { origin, request, readToken: vi.fn(async () => token), writeToken: vi.fn(async () => {}) };
+  return { origin, request };
 }
 
 afterEach(() => vi.unstubAllGlobals());
@@ -26,16 +25,14 @@ describe('GPSR 品名服务', () => {
     const [url, request] = options.request.mock.calls[0];
     expect(String(url)).toBe(`${origin}/api/v1/gpsr/names/translate`);
     expect(JSON.parse(String(request?.body))).toEqual({ name: names.ro, sourceLanguage: 'ro' });
-    expect(request?.headers).toMatchObject({ Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' });
+    expect(request?.headers).toMatchObject({ 'Content-Type': 'application/json' });
+    expect(request?.headers).not.toHaveProperty('Authorization');
     expect(request?.redirect).toBe('error');
   });
 
-  it('令牌按服务来源保存，提炼可传递未知语言和完整标题', async () => {
+  it('无需令牌即可提炼完整标题', async () => {
     const options = service(vi.fn<typeof fetch>().mockResolvedValue(Response.json({ name: '女士罗纹吊带背心' })));
     vi.stubGlobal('chrome', { runtime: { sendMessage: (message: unknown) => handleGpsrNameRequest(message, options) } });
-    await saveGpsrApiToken(` ${token} `);
-    expect(options.writeToken).toHaveBeenCalledExactlyOnceWith(`emag:gpsr-api-token:${origin}`, token);
-    expect(options.request).not.toHaveBeenCalled();
     const title = '女士吊带背心，厂家直销'.repeat(20);
     await expect(refineProductName(title, '')).resolves.toBe('女士罗纹吊带背心');
     const [url, request] = options.request.mock.calls[0];
@@ -53,17 +50,16 @@ describe('GPSR 品名服务', () => {
     expect(sendMessage).not.toHaveBeenCalled();
   });
 
-  it('扩展后台拒绝无效请求、缺少服务地址和缺少令牌', async () => {
+  it('扩展后台拒绝无效请求和缺少服务地址', async () => {
     const options = service();
     for (const request of [null, { ...translation, name: 'a'.repeat(161) }, { ...translation, sourceLanguage: 'de' }]) {
       await expect(handleGpsrNameRequest(request, options)).resolves.toMatchObject({ ok: false, error: '品名请求格式无效。' });
     }
     await expect(handleGpsrNameRequest(translation, { ...options, origin: '' })).resolves.toMatchObject({ ok: false, error: expect.stringContaining('服务地址') });
-    await expect(handleGpsrNameRequest(translation, { ...options, readToken: async () => undefined })).resolves.toMatchObject({ ok: false, error: expect.stringContaining('访问令牌') });
     expect(options.request).not.toHaveBeenCalled();
   });
 
-  it.each([[401, '令牌'], [429, '频繁'], [502, '暂不可用'], [504, '超时']])('将服务状态 %i 转换为用户提示', async (status, hint) => {
+  it.each([[401, '暂不可用'], [429, '频繁'], [502, '暂不可用'], [504, '超时']])('将服务状态 %i 转换为用户提示', async (status, hint) => {
     const options = service(vi.fn<typeof fetch>().mockResolvedValue(new Response(null, { status })));
     await expect(handleGpsrNameRequest(translation, options)).resolves.toMatchObject({ ok: false, error: expect.stringContaining(hint) });
   });

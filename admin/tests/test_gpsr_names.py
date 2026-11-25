@@ -9,8 +9,7 @@ from app.settings import Settings
 
 
 API = '/api/v1/gpsr/names'
-AUTH = {'Authorization': 'Bearer service-test-token'}
-SETTINGS = Settings('https://model.example/v1', 'test-model', 'model-test-key', 'service-test-token')
+SETTINGS = Settings('https://model.example/v1', 'test-model', 'model-test-key')
 NAMES = {'zh': '女士罗纹吊带背心', 'ro': 'Maiou reiat cu bretele', 'bg': 'Рипсен потник с презрамки', 'hu': 'Bordázott pántos trikó'}
 
 
@@ -34,7 +33,7 @@ def test_refine_forwards_name_and_language_with_server_credentials():
         return model_response({'name': NAMES['zh']})
 
     with make_client(handler) as client:
-        response = client.post(f'{API}/refine', json={'name': name, 'sourceLanguage': None}, headers=AUTH)
+        response = client.post(f'{API}/refine', json={'name': name, 'sourceLanguage': None})
     assert response.status_code == 200
     assert response.json() == {'name': NAMES['zh']}
 
@@ -47,7 +46,7 @@ def test_translate_calls_model_once_and_reuses_original_for_source_target():
         return model_response({key: value for key, value in NAMES.items() if key != 'ro'})
 
     with make_client(handler) as client:
-        response = client.post(f'{API}/translate', json={'name': '  Maiou de damă  ', 'sourceLanguage': 'ro'}, headers=AUTH)
+        response = client.post(f'{API}/translate', json={'name': '  Maiou de damă  ', 'sourceLanguage': 'ro'})
     assert len(requests) == 1
     assert response.status_code == 200
     assert response.json() == {**NAMES, 'ro': 'Maiou de damă'}
@@ -58,7 +57,6 @@ def test_translate_passes_thinking_option_only_when_configured(monkeypatch, conf
     monkeypatch.setenv('LLM_BASE_URL', SETTINGS.model_base_url)
     monkeypatch.setenv('LLM_MODEL', SETTINGS.model_name)
     monkeypatch.setenv('LLM_API_KEY', SETTINGS.model_api_key)
-    monkeypatch.setenv('GPSR_API_TOKEN', SETTINGS.api_token)
     if configured is None:
         monkeypatch.delenv('LLM_ENABLE_THINKING', raising=False)
     else:
@@ -74,21 +72,19 @@ def test_translate_passes_thinking_option_only_when_configured(monkeypatch, conf
 
     transport = httpx.MockTransport(handler)
     with TestClient(create_app(Settings.from_environment(), model_transport=transport)) as client:
-        response = client.post(f'{API}/translate', json={'name': NAMES['zh'], 'sourceLanguage': 'zh-CN'}, headers=AUTH)
+        response = client.post(f'{API}/translate', json={'name': NAMES['zh'], 'sourceLanguage': 'zh-CN'})
 
     assert response.status_code == 200
     assert response.json() == NAMES
 
 
-def test_health_authentication_and_invalid_inputs_do_not_call_model():
+def test_health_anonymous_access_and_invalid_inputs_do_not_call_model():
     def handler(_request):
         pytest.fail('无效请求不应调用模型')
 
     with make_client(handler) as client:
         assert client.get('/health').json() == {'status': 'ok'}
         valid = {'name': '背心', 'sourceLanguage': 'zh-CN'}
-        assert client.post(f'{API}/translate', json=valid).status_code == 401
-        assert client.post(f'{API}/translate', json=valid, headers={'Authorization': 'Bearer wrong'}).status_code == 401
         for route, invalid in [('translate', {**valid, 'sourceLanguage': None}),
                                ('translate', {**valid, 'sourceLanguage': 'fr'}),
                                ('translate', {**valid, 'name': '衣' * 161}),
@@ -96,7 +92,7 @@ def test_health_authentication_and_invalid_inputs_do_not_call_model():
                                ('translate', {**valid, 'url': 'https://example.com'}),
                                ('refine', {**valid, 'name': '衣' * 2001}),
                                ('refine', {**valid, 'name': '  '})]:
-            response = client.post(f'{API}/{route}', json=invalid, headers=AUTH)
+            response = client.post(f'{API}/{route}', json=invalid)
             assert response.status_code == 422
             assert set(response.json()) == {'detail'}
 
@@ -104,7 +100,7 @@ def test_health_authentication_and_invalid_inputs_do_not_call_model():
 @pytest.mark.parametrize(('status', 'expected'), [(429, 429), (401, 502), (500, 502)])
 def test_maps_upstream_status_to_safe_error(status, expected):
     with make_client(lambda _: httpx.Response(status, text='private upstream error')) as client:
-        response = client.post(f'{API}/refine', json={'name': '背心', 'sourceLanguage': 'zh-CN'}, headers=AUTH)
+        response = client.post(f'{API}/refine', json={'name': '背心', 'sourceLanguage': 'zh-CN'})
     assert response.status_code == expected
     assert 'private upstream error' not in response.text
 
@@ -114,14 +110,14 @@ def test_maps_model_timeout():
         raise httpx.ReadTimeout('private upstream error', request=request)
 
     with make_client(handler) as client:
-        response = client.post(f'{API}/refine', json={'name': '背心', 'sourceLanguage': None}, headers=AUTH)
+        response = client.post(f'{API}/refine', json={'name': '背心', 'sourceLanguage': None})
     assert response.status_code == 504
 
 
 @pytest.mark.parametrize('content', [{}, {'ro': 'Maiou'}, {**NAMES, 'hu': ' '}, {**NAMES, 'hu': 'a' * 161}, {**NAMES, 'zh': 'Vest'}])
 def test_rejects_incomplete_or_invalid_model_output(content):
     with make_client(lambda _: model_response(content)) as client:
-        response = client.post(f'{API}/translate', json={'name': 'Vest', 'sourceLanguage': 'en'}, headers=AUTH)
+        response = client.post(f'{API}/translate', json={'name': 'Vest', 'sourceLanguage': 'en'})
     assert response.status_code == 502
 
 
@@ -130,7 +126,7 @@ def test_translates_each_supported_language_and_preserves_source(language, sourc
     original = NAMES[source_key] if source_key else 'Ribbed camisole'
     content = {key: value for key, value in NAMES.items() if key != source_key}
     with make_client(lambda _: model_response(content)) as client:
-        response = client.post(f'{API}/translate', json={'name': original, 'sourceLanguage': language}, headers=AUTH)
+        response = client.post(f'{API}/translate', json={'name': original, 'sourceLanguage': language})
     assert response.status_code == 200
     assert response.json() == NAMES
 
@@ -139,7 +135,7 @@ def test_translates_each_supported_language_and_preserves_source(language, sourc
 def test_rejects_malformed_model_response(content):
     upstream = {'choices': [{'message': {'content': content}}]}
     with make_client(lambda _: httpx.Response(200, json=upstream)) as client:
-        response = client.post(f'{API}/refine', json={'name': '背心'}, headers=AUTH)
+        response = client.post(f'{API}/refine', json={'name': '背心'})
     assert response.status_code == 502
 
 
@@ -148,21 +144,21 @@ def test_accepts_fenced_model_json_and_rejects_multiline_name():
     content = fence + 'json\n{"name":"女士背心"}\n' + fence
     upstream = {'choices': [{'message': {'content': content}}]}
     with make_client(lambda _: httpx.Response(200, json=upstream)) as client:
-        assert client.post(f'{API}/refine', json={'name': '背心'}, headers=AUTH).json() == {'name': '女士背心'}
+        assert client.post(f'{API}/refine', json={'name': '背心'}).json() == {'name': '女士背心'}
     with make_client(lambda _: model_response({'name': '女士\n背心'})) as client:
-        assert client.post(f'{API}/refine', json={'name': '背心'}, headers=AUTH).status_code == 502
+        assert client.post(f'{API}/refine', json={'name': '背心'}).status_code == 502
 
 
 def test_config_requires_all_values_and_keeps_credentials_out_of_repr(monkeypatch):
     values = {'LLM_BASE_URL': SETTINGS.model_base_url, 'LLM_MODEL': SETTINGS.model_name,
-              'LLM_API_KEY': SETTINGS.model_api_key, 'GPSR_API_TOKEN': SETTINGS.api_token}
+              'LLM_API_KEY': SETTINGS.model_api_key}
     for key, value in values.items():
         monkeypatch.setenv(key, value)
+    monkeypatch.delenv('GPSR_API_TOKEN', raising=False)
     monkeypatch.delenv('LLM_ENABLE_THINKING', raising=False)
     loaded = Settings.from_environment()
     assert loaded == SETTINGS
     assert SETTINGS.model_api_key not in repr(loaded)
-    assert SETTINGS.api_token not in repr(loaded)
     monkeypatch.delenv('LLM_API_KEY')
     with pytest.raises(RuntimeError, match='LLM_API_KEY'):
         Settings.from_environment()
@@ -172,7 +168,6 @@ def test_config_rejects_invalid_thinking_option(monkeypatch):
     monkeypatch.setenv('LLM_BASE_URL', SETTINGS.model_base_url)
     monkeypatch.setenv('LLM_MODEL', SETTINGS.model_name)
     monkeypatch.setenv('LLM_API_KEY', SETTINGS.model_api_key)
-    monkeypatch.setenv('GPSR_API_TOKEN', SETTINGS.api_token)
     monkeypatch.setenv('LLM_ENABLE_THINKING', 'disabled')
 
     with pytest.raises(RuntimeError, match='LLM_ENABLE_THINKING'):
