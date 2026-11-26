@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { renderPrivacyPage, normalizePublicPolicyUrl } from '../scripts/release/disclosures';
+import { renderPrivacyPage, renderThirdPartyNoticesPage, normalizePublicPolicyUrl } from '../scripts/release/disclosures';
 
 describe('随包隐私说明', () => {
   it('披露本地资料、品名服务转发和图搜的实际数据流', () => {
@@ -12,6 +12,7 @@ describe('随包隐私说明', () => {
     expect(html).toContain('https://emag.toutouapp.cn');
     expect(html).toContain('mailto:support@example.com');
     expect(html).toContain('独立第三方');
+    expect(html).toContain('href="THIRD_PARTY_NOTICES.html">查看第三方许可与资产来源</a>');
     expect(html).not.toContain('<script');
   });
 
@@ -30,5 +31,38 @@ describe('随包隐私说明', () => {
 
   it.each(['javascript:alert(1)', 'http://example.com/privacy', 'https://user:password@example.com/privacy', 'https://localhost/privacy', 'https://127.0.0.1/privacy'])('拒绝不安全的公开政策地址 %s', (url) => {
     expect(() => normalizePublicPolicyUrl(url)).toThrow(/HTTPS|公开|账号/);
+  });
+});
+
+describe('第三方许可阅读页面', () => {
+  it('使用 UTF-8 页面结构显示完整许可文本并保留原文下载', () => {
+    const html = renderThirdPartyNoticesPage([
+      'eMAG 卖家工具箱第三方许可声明',
+      '以下收录生产依赖的许可与版权文本。',
+      '',
+      '========== @example/dependency@2.0.1 ==========',
+      '声明许可：MIT',
+      '',
+      '--- LICENSE.txt ---',
+      'Copyright © Example 作者。该软件按许可条款提供。',
+      '',
+      '========== 字体及矢量资产来源 ==========',
+      '## 字体',
+      '',
+      '| 文件 | 许可与用途 |',
+      '| --- | --- |',
+      '| 示例字体 | SIL OFL 1.1 |',
+    ].join('\n'));
+
+    expect(html).toContain('<meta charset="utf-8">');
+    expect(html).toContain('<h1>第三方许可与资产来源</h1>');
+    expect(html).toContain('@example/dependency');
+    expect(html).toContain('声明许可：MIT');
+    expect(html).toContain('<details class="license-details">');
+    expect(html).toContain('点击展开完整许可文本');
+    expect(html).toContain('Copyright © Example 作者');
+    expect(html).toContain('字体及矢量资产来源');
+    expect(html).toContain('href="THIRD_PARTY_NOTICES.txt" download');
+    expect(html).not.toContain('该软件按许可条款提供。<script>');
   });
 });

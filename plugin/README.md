@@ -12,7 +12,7 @@ npm run package
 npm run test:release
 ~~~
 
-`npm run package` 会依次检查正式服务配置、运行全部单元测试和 lint、重新构建，再生成 `release/eMAG-seller-toolkit-1.1.1-YYYYMMDD.zip`。脚本统一 ZIP 路径为 `/`，确认根目录 Manifest、图标、入口及懒加载资源完整，并附带隐私说明和第三方许可。打包使用上海时区的日期。
+`npm run package` 会依次检查正式服务配置、运行全部单元测试和 lint、重新构建，再生成 `release/eMAG-seller-toolkit-1.1.1-YYYYMMDD.zip`。脚本统一 ZIP 路径为 `/`，确认根目录 Manifest、图标、入口及懒加载资源完整，并附带隐私说明、排版后的第三方许可页与可下载的原始许可文本。打包使用上海时区的日期。
 
 `npm run test:release` 直接解压并加载生成的 ZIP，检查商品页与独立侧栏中的隐私入口、表单保存、PDF/PNG 导出及保存商品页与模拟 1688 页面之间的图搜流程。浏览器依赖使用 `tmp/browsers`，首次运行可执行 `npx playwright install chromium`，并将 `PLAYWRIGHT_BROWSERS_PATH` 设为该目录。
 

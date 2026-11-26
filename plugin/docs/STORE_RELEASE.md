@@ -41,7 +41,7 @@ npm run package:verify -- release/eMAG-seller-toolkit-1.1.1-20261125.zip
 
 ## 发布前还需运营方完成
 
-1. 确定公开 HTTPS 隐私政策地址。构建已生成 `dist/privacy.html`，可连同 `dist/THIRD_PARTY_NOTICES.txt` 上传到公开网站的相同目录。政策页可独立访问和阅读。
+1. 确定公开 HTTPS 隐私政策地址。构建生成的 `dist/privacy.html`、`dist/THIRD_PARTY_NOTICES.html` 与 `dist/THIRD_PARTY_NOTICES.txt` 应一起上传到公开网站的相同目录。隐私页链接打开排版后的许可页，页面保留原始许可文本下载入口。
 2. 将该政策地址写入 `.env.local` 的 `VITE_PRIVACY_POLICY_URL`，重新执行 `npm run package`。检查公开页面中的运营主体、模型供应商和实际生效的日志政策。
 3. 更新并重新部署 `admin` 服务，使新增的 30 天日志轮转与清理逻辑生效。应用日志目录默认为 `admin/logs`，Docker 中为 `/app/logs`，可通过 `SERVICE_LOG_DIRECTORY` 指定。部署日志说明见 `admin/README.md`。
 4. 核实云平台、Nginx 或其他接入层已有的日志，以及阿里云账户实际使用地域、数据保存及训练相关配置。自有服务的清理仅覆盖应用日志目录下按日命名的 `gpsr-YYYY-MM-DD.log`。

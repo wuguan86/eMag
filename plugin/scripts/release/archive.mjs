@@ -2,7 +2,7 @@ import { posix } from 'node:path';
 import { strFromU8, unzipSync, zipSync } from 'fflate';
 
 const requiredFiles = [
-  'manifest.json', 'privacy.html', 'THIRD_PARTY_NOTICES.txt',
+  'manifest.json', 'privacy.html', 'THIRD_PARTY_NOTICES.html', 'THIRD_PARTY_NOTICES.txt',
   'licenses/Noto-OFL.txt', 'licenses/Droid-NOTICE.txt',
 ];
 

@@ -12,6 +12,48 @@ function escapeHtml(value: string) {
   })[character]!);
 }
 
+export function renderThirdPartyNoticesPage(notices: string) {
+  const sections = notices.trim().split(/\n(?=={10,} )/);
+  const [, description] = sections[0].split('\n').map((line) => line.trim());
+  const packageCards = sections.slice(1).map((section) => {
+    const [heading, ...bodyLines] = section.split('\n');
+    const name = heading.match(/^=+\s*(.+?)\s*=+$/)?.[1] ?? '许可条款';
+    const body = bodyLines.join('\n').trim();
+    const fileBlocks = [...body.matchAll(/(?:^|\n)--- (.+?) ---\n/g)];
+    const summary = fileBlocks.length ? body.slice(0, fileBlocks[0].index).trim() : '';
+    const licenses = fileBlocks.length
+      ? fileBlocks.map((file, index) => {
+        const textStart = file.index! + file[0].length;
+        const textEnd = fileBlocks[index + 1]?.index ?? body.length;
+        return '<section class="license-copy"><h3>' + escapeHtml(file[1]) + '</h3><pre>'
+          + escapeHtml(body.slice(textStart, textEnd).trim()) + '</pre></section>';
+      }).join('\n')
+      : '<pre>' + escapeHtml(body) + '</pre>';
+    const isAssetSources = name.includes('资产来源');
+    return '<article class="notice-card"><header><h2>' + escapeHtml(name) + '</h2>'
+      + (isAssetSources ? '' : '<p>生产依赖许可与版权</p>') + '</header>'
+      + (summary ? '<p class="license-summary">' + escapeHtml(summary) + '</p>' : '')
+      + (isAssetSources ? licenses : '<details class="license-details"><summary>点击展开完整许可文本（'
+        + fileBlocks.length + ' 项）</summary><div class="license-content">' + licenses + '</div></details>')
+      + '</article>';
+  });
+
+  return [
+    '<!doctype html>', '<html lang="zh-CN"><head><meta charset="utf-8">',
+    '<meta name="viewport" content="width=device-width,initial-scale=1">',
+    '<title>第三方许可与资产来源 · eMAG 卖家工具箱</title>',
+    '<style>body{margin:0;background:#f4f6fa;color:#23324a;font:15px/1.75 system-ui,"Microsoft YaHei",sans-serif}.page-header{background:#fff;border-bottom:1px solid #e5e9f1}.header-inner,main{max-width:920px;margin:auto;padding:22px 30px}.eyebrow{margin:0;color:#526683;font-size:12px;font-weight:700;letter-spacing:.08em}.page-title{display:flex;align-items:center;justify-content:space-between;gap:16px}.page-title h1{margin:5px 0;font-size:25px}.page-actions{display:flex;flex-wrap:wrap;gap:8px}.page-actions a{padding:8px 12px;border:1px solid #d6deea;border-radius:7px;color:#294c84;text-decoration:none;font-size:13px;font-weight:600}.page-actions a:first-child{background:#2157c5;border-color:#2157c5;color:white}.intro{margin:0;color:#637089}.notice-card{margin:18px 0;padding:22px 26px;background:#fff;border:1px solid #e0e6ef;border-radius:11px;box-shadow:0 2px 7px #24334a0b}.notice-card>header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid #edf0f4}.notice-card h2{margin:0;font-size:18px;overflow-wrap:anywhere}.notice-card>header p{margin:0;color:#748097;font-size:12px}.license-summary{margin:13px 0;color:#53627a;font-size:13px}.license-details{margin-top:12px;border:1px solid #e4e9f1;border-radius:7px;background:#fafbfd}.license-details summary{padding:10px 13px;color:#294c84;font-size:13px;font-weight:600;cursor:pointer}.license-content{padding:0 13px 13px}.license-copy{margin-top:12px}.license-copy h3{margin:0 0 7px;color:#475976;font-size:12px;text-transform:uppercase;letter-spacing:.05em}.license-copy pre,.notice-card>pre{margin:0;padding:16px 18px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#f7f8fa;border:1px solid #edf0f4;border-radius:7px;color:#38465b;font:12px/1.65 ui-monospace,Consolas,monospace}.page-footer{padding:12px 0 32px;color:#7a8598;font-size:12px}.page-footer a{color:#2157c5}@media(max-width:600px){.header-inner,main{padding:16px}.page-title{align-items:flex-start;flex-direction:column}.notice-card{padding:17px}.notice-card>header{align-items:flex-start;flex-direction:column}}</style>',
+    '</head><body><header class="page-header"><div class="header-inner">',
+    '<p class="eyebrow">eMAG SELLER TOOLKIT · OPEN SOURCE NOTICES</p>',
+    '<div class="page-title"><h1>第三方许可与资产来源</h1><nav class="page-actions" aria-label="页面操作">',
+    '<a href="THIRD_PARTY_NOTICES.txt" download>下载原始许可文本</a>',
+    '<a href="privacy.html">返回隐私说明</a></nav></div></div></header>',
+    '<main><p class="intro">' + escapeHtml(description) + '</p>',
+    ...packageCards,
+    '<footer class="page-footer">本站同时提供完整许可文本供保存和核对。</footer></main></body></html>',
+  ].join('\n');
+}
+
 export function normalizePublicPolicyUrl(value: string | undefined) {
   if (!value?.trim()) return '';
   let url: URL;
@@ -78,7 +120,7 @@ export function renderPrivacyPage(environment: PublicEnvironment) {
       : '<p class="notice">日志保留期限、第三方的数据保存和训练规则尚待运营方确认。使用品名服务前可通过上述联系邮箱核实，或提出访问与删除请求。</p>',
     '<h2>七、适用范围与使用核对</h2>',
     '<p>商品解析当前适配 eMAG 罗马尼亚站，RO、BG、HU 品名及 VAT 参考切换的具体用途请结合界面说明使用。利润试算与标签内容需要你核对实际费用、法规、标准、标志适用性及译文。</p>',
-    '<p><a href="THIRD_PARTY_NOTICES.txt">查看第三方许可与资产来源</a></p>',
+    '<p><a href="THIRD_PARTY_NOTICES.html">查看第三方许可与资产来源</a></p>',
     '</main></body></html>',
   ].join('\n');
 }
@@ -88,15 +130,30 @@ export function releaseDisclosures(environment: PublicEnvironment, root: string)
   return {
     name: 'release-disclosures',
     configureServer(server) {
-      server.middlewares.use((request, response, next) => {
-        if (request.url?.split('?')[0] !== '/privacy.html') return next();
-        response.setHeader('Content-Type', 'text/html; charset=utf-8');
-        response.end(privacyPage);
+      server.middlewares.use(async (request, response, next) => {
+        const route = request.url?.split('?')[0];
+        if (route === '/privacy.html') {
+          response.setHeader('Content-Type', 'text/html; charset=utf-8');
+          response.end(privacyPage);
+          return;
+        }
+        if (route !== '/THIRD_PARTY_NOTICES.html' && route !== '/THIRD_PARTY_NOTICES.txt') return next();
+        try {
+          const notices = await collectThirdPartyNotices(root);
+          response.setHeader('Content-Type', route.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/plain; charset=utf-8');
+          response.end(route.endsWith('.html') ? renderThirdPartyNoticesPage(notices) : notices);
+        } catch (error) {
+          console.error('生成第三方许可页面失败。', error);
+          response.statusCode = 500;
+          response.end('第三方许可页面暂时无法生成。');
+        }
       });
     },
     async generateBundle() {
       this.emitFile({ type: 'asset', fileName: 'privacy.html', source: privacyPage });
-      this.emitFile({ type: 'asset', fileName: 'THIRD_PARTY_NOTICES.txt', source: await collectThirdPartyNotices(root) });
+      const notices = await collectThirdPartyNotices(root);
+      this.emitFile({ type: 'asset', fileName: 'THIRD_PARTY_NOTICES.html', source: renderThirdPartyNoticesPage(notices) });
+      this.emitFile({ type: 'asset', fileName: 'THIRD_PARTY_NOTICES.txt', source: notices });
       for (const name of ['Noto-OFL.txt', 'Droid-NOTICE.txt']) {
         this.emitFile({ type: 'asset', fileName: 'licenses/' + name,
           source: await readFile(path.join(root, 'src/assets/fonts', name), 'utf8') });

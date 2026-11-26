@@ -16,6 +16,7 @@ function releaseFiles() {
     'popup.html': strToU8('<script type="module" src="/assets/shared.js"></script>'),
     'icons/icon128.png': new Uint8Array([137, 80, 78, 71]),
     'privacy.html': strToU8('<h1>隐私与数据说明</h1>'),
+    'THIRD_PARTY_NOTICES.html': strToU8('<h1>第三方许可与资产来源</h1>'),
     'THIRD_PARTY_NOTICES.txt': strToU8('第三方许可声明'),
     'licenses/Noto-OFL.txt': strToU8('SIL OPEN FONT LICENSE'),
     'licenses/Droid-NOTICE.txt': strToU8('Apache License'),
@@ -32,7 +33,7 @@ describe('发布包生成和校验', () => {
     expect(verifyReleaseArchive(bytes, '1.1.1').version).toBe('1.1.1');
   });
 
-  it.each(['privacy.html', 'THIRD_PARTY_NOTICES.txt', 'licenses/Noto-OFL.txt', 'licenses/Droid-NOTICE.txt', 'icons/icon128.png', 'assets/shared.js'])(
+  it.each(['privacy.html', 'THIRD_PARTY_NOTICES.html', 'THIRD_PARTY_NOTICES.txt', 'licenses/Noto-OFL.txt', 'licenses/Droid-NOTICE.txt', 'icons/icon128.png', 'assets/shared.js'])(
     '缺少必要资源 %s 时阻止生成', (name) => {
       const files = releaseFiles();
       delete files[name];

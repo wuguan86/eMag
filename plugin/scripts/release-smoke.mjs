@@ -53,11 +53,18 @@ try {
   await policy.waitForURL(extensionOrigin + '/privacy.html');
   await expect(policy.getByRole('heading', { name: '隐私与数据说明', exact: true })).toBeVisible();
   await expect(policy.locator('body')).toContainText('模型服务商');
-  // 扩展协议使用浏览器自身加载，同时验证许可文件可由用户实际打开。
-  const noticePage = await context.newPage();
-  await noticePage.goto(extensionOrigin + '/THIRD_PARTY_NOTICES.txt');
-  await expect(noticePage.locator('body')).toContainText('The Noto Project Authors');
-  await expect(noticePage.locator('body')).toContainText('Johan Lindell');
+  // 验证隐私页按钮打开排版后的许可页，原始文本仍保留下载入口。
+  await policy.getByRole('link', { name: '查看第三方许可与资产来源' }).click();
+  await policy.waitForURL(extensionOrigin + '/THIRD_PARTY_NOTICES.html');
+  await expect(policy.getByRole('heading', { name: '第三方许可与资产来源', exact: true })).toBeVisible();
+  await expect(policy.locator('body')).toContainText('The Noto Project Authors');
+  await expect(policy.locator('body')).toContainText('Johan Lindell');
+  await expect(policy.locator('body')).toContainText('许可与版权');
+  const firstLicense = policy.locator('.license-details').first();
+  await firstLicense.locator('summary').click();
+  await expect(firstLicense).toContainText('Permission is hereby granted');
+  await expect(policy.getByRole('link', { name: '下载原始许可文本' })).toHaveAttribute('href', 'THIRD_PARTY_NOTICES.txt');
+  await policy.screenshot({ path: path.join(output, 'third-party-notices.png'), fullPage: true });
   await policy.setViewportSize({ width: 432, height: 700 });
   assert.equal(await policy.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth), true, '隐私说明在窄窗口应完整显示');
   await policy.screenshot({ path: path.join(output, 'privacy.png'), fullPage: true });
